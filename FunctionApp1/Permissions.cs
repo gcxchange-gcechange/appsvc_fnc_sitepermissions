@@ -46,7 +46,7 @@ namespace SitePermissions
 
                     var misconfigured = false;
 
-                    var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.clientId, Globals.clientSecret, AzureEnvironment.Production);
+                    var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret, AzureEnvironment.Production);
                     var web = ctx.Web;
 
                     foreach(var group in Globals.groups)

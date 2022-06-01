@@ -19,8 +19,9 @@ namespace SitePermissions
         public static readonly string clientId = config["clientId"];
         public static readonly string clientSecret = config["clientSecret"];
         public static readonly string tenantId = config["tenantId"];
+        public static readonly string appOnlyId = config["appOnlyId"];
+        public static readonly string appOnlySecret = config["appOnlySecret"];
 
-        //public static readonly string groups = config["groups"];
         public static readonly List<Group> groups = GetGroups();
 
         public static readonly string UserSender = config["DoNotReplyEmail"];
