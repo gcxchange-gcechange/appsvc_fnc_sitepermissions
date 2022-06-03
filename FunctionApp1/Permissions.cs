@@ -15,7 +15,7 @@ namespace SitePermissions
 {
     public static class Permissions
     {
-        [FunctionName("GetMisconfigured")]
+        [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
@@ -25,6 +25,7 @@ namespace SitePermissions
             var auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
 
+            // Get subsites
             var sitesQueryOptions = new List<QueryOption>()
             {
                 new QueryOption("search", "DepartmentId:{" + Globals.hubId + "}"),
@@ -39,49 +40,73 @@ namespace SitePermissions
             {
                 foreach (var site in allSites)
                 {
-                    var permissions = await graphAPIAuth.Sites[site.Id].Permissions
-                    .Request()
-                    .Header("ConsistencyLevel", "eventual")
-                    .GetAsync();
-
                     var misconfigured = false;
 
-                    var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret, AzureEnvironment.Production);
-                    var web = ctx.Web;
+                    var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
+                    //var oGroupCollection = ctx.Web.SiteGroups;
 
-                    foreach(var group in Globals.groups)
+                    //ctx.Load(oGroupCollection);
+                    //ctx.ExecuteQuery();
+
+                    // Go through each group in local.settings.json
+                    foreach (var group in Globals.groups)
                     {
                         try
                         {
-                            var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.GroupId), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
-                            ctx.Load(adGroup);
-                            var spGroup = ctx.Web.AssociatedMemberGroup;
-                            spGroup.Users.AddUser(adGroup);
-
-                            var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
-                            var roleDefCollection = new Microsoft.SharePoint.Client.RoleDefinitionBindingCollection(ctx);
-                            roleDefCollection.Add(writeDefinition);
-                            var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
-
-                            ctx.Load(spGroup, x => x.Users);
+                            var actvdirGroup = ctx.Web.EnsureUser(group.GroupName);
+                            ctx.Load(actvdirGroup);
                             ctx.ExecuteQuery();
+
+                            var permissions = ctx.Web.GetUserEffectivePermissions(actvdirGroup.LoginName);
+                            ctx.ExecuteQuery();
+
+                            switch (group.PermissionLevel)
+                            {
+                                case "Read":
+                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ViewPages))
+                                        misconfigured = true;
+                                    break;
+                                case "Edit":
+                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.EditListItems))
+                                        misconfigured = true;
+                                    break;
+                                case "Full Control":
+                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.FullMask))
+                                        misconfigured = true;
+                                    break;
+                                case "Site Collection Administrator":
+                                    // TODO
+                                    break;
+                                default:
+                                    log.LogInformation($"Error parsing group permission level - {group.PermissionLevel}");
+                                    break;
+                            }
+
+                            // Group didn't exist, so add it
+                            if (misconfigured)
+                            {
+
+                                continue;
+                                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.GroupId), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
+                                var adGroup = ctx.Web.EnsureUser(group.GroupName);
+                                ctx.Load(adGroup);
+                                var spGroup = ctx.Web.AssociatedMemberGroup;
+                                spGroup.Users.AddUser(adGroup);
+
+                                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
+                                var roleDefCollection = new Microsoft.SharePoint.Client.RoleDefinitionBindingCollection(ctx);
+                                roleDefCollection.Add(writeDefinition);
+                                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
+
+                                ctx.Load(spGroup, x => x.Users);
+                                ctx.ExecuteQuery();
+                            }
                         }
                         catch (Exception ex)
                         {
-                            log.LogInformation($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Message}");
+                            log.LogInformation($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} {ex.InnerException}");
                         }
                     }
-
-
-                    do
-                    {
-                        foreach (var permission in permissions)
-                        {
-                            // TODO: Look for misconfig here
-                            var p = permission;
-                        }
-                    }
-                    while (permissions.NextPageRequest != null && (permissions = await permissions.NextPageRequest.GetAsync()).Count > 0);
 
                     if (misconfigured)
                     {
