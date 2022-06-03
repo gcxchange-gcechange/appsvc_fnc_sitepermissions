@@ -71,11 +71,12 @@ namespace SitePermissions
                                         misconfigured = true;
                                     break;
                                 case "Full Control":
-                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.FullMask))
+                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManagePermissions))
                                         misconfigured = true;
                                     break;
                                 case "Site Collection Administrator":
-                                    // TODO
+                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManageWeb))
+                                        misconfigured = true;
                                     break;
                                 default:
                                     log.LogInformation($"Error parsing group permission level - {group.PermissionLevel}");
