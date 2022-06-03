@@ -40,15 +40,10 @@ namespace SitePermissions
             {
                 foreach (var site in allSites)
                 {
-                    var misconfigured = false;
-
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
-                    //var oGroupCollection = ctx.Web.SiteGroups;
+                    bool misconfigured = false;
 
-                    //ctx.Load(oGroupCollection);
-                    //ctx.ExecuteQuery();
-
-                    // Go through each group in local.settings.json
+                    // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
                     {
                         try
@@ -60,52 +55,63 @@ namespace SitePermissions
                             var permissions = ctx.Web.GetUserEffectivePermissions(actvdirGroup.LoginName);
                             ctx.ExecuteQuery();
 
+                            // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
                             switch (group.PermissionLevel)
                             {
                                 case "Read":
+
                                     if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ViewPages))
+                                    {
+                                        await AddGroup(ctx, group, log);
+
                                         misconfigured = true;
+                                    }
+
                                     break;
+
                                 case "Edit":
+
                                     if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.EditListItems))
+                                    { 
+                                        await AddGroup(ctx, group, log);
+
                                         misconfigured = true;
+                                    }
+
                                     break;
+
                                 case "Full Control":
+
                                     if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManagePermissions))
+                                    {
+                                        await AddGroup(ctx, group, log);
+
                                         misconfigured = true;
+                                    }
                                     break;
+
                                 case "Site Collection Administrator":
+
                                     if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManageWeb))
+                                    {
+                                        await RemoveSiteCollectionAdministrator(ctx, log);
+                                        await AddSiteCollectionAdministrator(group, ctx, log);
+
                                         misconfigured = true;
+                                    }
+
                                     break;
+
                                 default:
+
                                     log.LogInformation($"Error parsing group permission level - {group.PermissionLevel}");
+
                                     break;
-                            }
-
-                            // Group didn't exist, so add it
-                            if (misconfigured)
-                            {
-
-                                continue;
-                                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.GroupId), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
-                                var adGroup = ctx.Web.EnsureUser(group.GroupName);
-                                ctx.Load(adGroup);
-                                var spGroup = ctx.Web.AssociatedMemberGroup;
-                                spGroup.Users.AddUser(adGroup);
-
-                                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
-                                var roleDefCollection = new Microsoft.SharePoint.Client.RoleDefinitionBindingCollection(ctx);
-                                roleDefCollection.Add(writeDefinition);
-                                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
-
-                                ctx.Load(spGroup, x => x.Users);
-                                ctx.ExecuteQuery();
                             }
                         }
                         catch (Exception ex)
                         {
-                            log.LogInformation($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} {ex.InnerException}");
+                            log.LogInformation($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
                         }
                     }
 
@@ -122,7 +128,67 @@ namespace SitePermissions
             return new OkObjectResult(misconfiguredSites);
         }
 
-        public static async Task<List<Tuple<User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
+        public static async Task<bool> AddGroup(Microsoft.SharePoint.Client.ClientContext ctx, Globals.Group group, ILogger log)
+        {
+            var result = true;
+
+            try
+            {
+                var adGroup = ctx.Web.EnsureUser(group.GroupName);
+                ctx.Load(adGroup);
+                var spGroup = ctx.Web.AssociatedMemberGroup;
+                spGroup.Users.AddUser(adGroup);
+
+                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
+                var roleDefCollection = new Microsoft.SharePoint.Client.RoleDefinitionBindingCollection(ctx);
+                roleDefCollection.Add(writeDefinition);
+                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
+
+                ctx.Load(spGroup, x => x.Users);
+                ctx.ExecuteQuery();
+            }
+            catch (Exception ex)
+            {
+                log.LogInformation($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+            }
+
+            return result;
+        }
+
+        private static async Task<bool> AddSiteCollectionAdministrator(Globals.Group group, Microsoft.SharePoint.Client.ClientContext ctx, ILogger log)
+        {
+            var result = true;
+
+            // TODO
+
+            return result;
+        }
+
+        private static async Task<IActionResult> RemoveSiteCollectionAdministrator(Microsoft.SharePoint.Client.ClientContext ctx, ILogger log)
+        {
+            ctx.Load(ctx.Web);
+            ctx.Load(ctx.Site);
+            ctx.Load(ctx.Site.RootWeb);
+            ctx.ExecuteQuery();
+
+            var users = ctx.Site.RootWeb.SiteUsers;
+            ctx.Load(users);
+            ctx.ExecuteQuery();
+
+            foreach (var user in users)
+            {
+                user.IsSiteAdmin = false;
+                user.Update();
+                ctx.Load(user);
+                ctx.ExecuteQuery();
+
+                log.LogInformation($"Removed {user.UserPrincipalName} as Site Collection Administrators from {ctx.Site.Url}");
+            }
+
+            return new OkObjectResult(users);
+        }
+
+        private static async Task<List<Tuple<User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
             var results = new List<Tuple<User, bool>>();
 
@@ -171,7 +237,7 @@ namespace SitePermissions
             return results;
         }
 
-        public static async Task<bool> SendEmail(string SiteName, string Username, string UserEmail, ILogger log)
+        private static async Task<bool> SendEmail(string SiteName, string Username, string UserEmail, ILogger log)
         {
             var result = false;
             string EmailSender = Globals.UserSender;
@@ -212,7 +278,7 @@ namespace SitePermissions
             }
             catch (ServiceException ex)
             {
-                log.LogInformation($"Error sending email: {ex.Message}");
+                log.LogInformation($"Error sending email for {SiteName}: {ex.Message}");
                 result = false;
             }
 
