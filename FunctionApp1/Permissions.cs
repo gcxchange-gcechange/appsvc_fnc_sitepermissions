@@ -204,26 +204,34 @@ namespace SitePermissions
         {
             var result = true;
 
-            ctx.Load(ctx.Web);
-            ctx.Load(ctx.Site);
-            ctx.Load(ctx.Site.RootWeb);
-            ctx.ExecuteQuery();
-
-            List<string> lstTargetGroups = new List<string>();
-            lstTargetGroups.Add(group.GroupName); 
-
-            List<UserEntity> admins = new List<UserEntity>();
-            foreach (var targetGroup in lstTargetGroups)
+            try
             {
-                UserEntity adminUserEntity = new UserEntity();
-                adminUserEntity.LoginName = targetGroup;
-                admins.Add(adminUserEntity);
-            }
+                ctx.Load(ctx.Web);
+                ctx.Load(ctx.Site);
+                ctx.Load(ctx.Site.RootWeb);
+                ctx.ExecuteQuery();
 
-            if (admins.Count > 0)
-            {
-                ctx.Site.RootWeb.AddAdministrators(admins, true);
+                List<string> lstTargetGroups = new List<string>();
+                lstTargetGroups.Add(group.GroupName);
+
+                List<UserEntity> admins = new List<UserEntity>();
+                foreach (var targetGroup in lstTargetGroups)
+                {
+                    UserEntity adminUserEntity = new UserEntity();
+                    adminUserEntity.LoginName = targetGroup;
+                    admins.Add(adminUserEntity);
+                }
+
+                if (admins.Count > 0)
+                {
+                    ctx.Site.RootWeb.AddAdministrators(admins, true);
+                }
             }
+            catch (Exception ex)
+            {
+                log.LogInformation($"Error addming site collection admin: {ex.Message}");
+            }
+            
 
             return result;
         }
