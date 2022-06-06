@@ -10,6 +10,9 @@ using System.Collections.Generic;
 using Microsoft.Graph;
 using System.Net.Mail;
 using PnP.Framework;
+using Microsoft.SharePoint.Client;
+using User = Microsoft.SharePoint.Client.User;
+using Site = Microsoft.Graph.Site;
 
 namespace SitePermissions
 {
@@ -60,8 +63,12 @@ namespace SitePermissions
                             {
                                 case "Read":
 
-                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ViewPages))
+                                    if (!permissions.Value.Has(PermissionKind.ViewPages) ||
+                                        permissions.Value.Has(PermissionKind.EditListItems) ||
+                                        permissions.Value.Has(PermissionKind.ManagePermissions) ||
+                                        permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
+                                        await ResetGroup(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
@@ -71,8 +78,11 @@ namespace SitePermissions
 
                                 case "Edit":
 
-                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.EditListItems))
-                                    { 
+                                    if (!permissions.Value.Has(PermissionKind.EditListItems) ||
+                                        permissions.Value.Has(PermissionKind.ManagePermissions) ||
+                                        permissions.Value.Has(PermissionKind.ManageWeb))
+                                    {
+                                        await ResetGroup(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
@@ -82,19 +92,22 @@ namespace SitePermissions
 
                                 case "Full Control":
 
-                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManagePermissions))
+                                    if (!permissions.Value.Has(PermissionKind.ManagePermissions) ||
+                                        permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
+                                        await ResetGroup(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
                                     }
+
                                     break;
 
                                 case "Site Collection Administrator":
 
-                                    if (!permissions.Value.Has(Microsoft.SharePoint.Client.PermissionKind.ManageWeb))
+                                    if (!permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
-                                        await RemoveSiteCollectionAdministrator(ctx, log);
+                                        await RemoveSiteCollectionAdministrators(ctx, log);
                                         await AddSiteCollectionAdministrator(group, ctx, log);
 
                                         misconfigured = true;
@@ -128,7 +141,30 @@ namespace SitePermissions
             return new OkObjectResult(misconfiguredSites);
         }
 
-        public static async Task<bool> AddGroup(Microsoft.SharePoint.Client.ClientContext ctx, Globals.Group group, ILogger log)
+        public static async Task<bool> ResetGroup(ClientContext ctx, Globals.Group group, ILogger log)
+        {
+            var result = true;
+            var roleAssignments = ctx.Web.RoleAssignments;
+
+            ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+            ctx.ExecuteQuery();
+
+            for (var i = 0; i < roleAssignments.Count; i++)
+            {
+                var ra = roleAssignments[i];
+                if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
+                {
+                    ra.RoleDefinitionBindings.RemoveAll();
+                    ra.DeleteObject();
+                }
+            }
+
+            ctx.ExecuteQuery();
+
+            return result;
+        }
+
+        public static async Task<bool> AddGroup(ClientContext ctx, Globals.Group group, ILogger log)
         {
             var result = true;
 
@@ -140,7 +176,7 @@ namespace SitePermissions
                 spGroup.Users.AddUser(adGroup);
 
                 var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
-                var roleDefCollection = new Microsoft.SharePoint.Client.RoleDefinitionBindingCollection(ctx);
+                var roleDefCollection = new RoleDefinitionBindingCollection(ctx);
                 roleDefCollection.Add(writeDefinition);
                 var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
 
@@ -155,7 +191,7 @@ namespace SitePermissions
             return result;
         }
 
-        private static async Task<bool> AddSiteCollectionAdministrator(Globals.Group group, Microsoft.SharePoint.Client.ClientContext ctx, ILogger log)
+        private static async Task<bool> AddSiteCollectionAdministrator(Globals.Group group, ClientContext ctx, ILogger log)
         {
             var result = true;
 
@@ -164,7 +200,7 @@ namespace SitePermissions
             return result;
         }
 
-        private static async Task<IActionResult> RemoveSiteCollectionAdministrator(Microsoft.SharePoint.Client.ClientContext ctx, ILogger log)
+        private static async Task<IActionResult> RemoveSiteCollectionAdministrators(ClientContext ctx, ILogger log)
         {
             ctx.Load(ctx.Web);
             ctx.Load(ctx.Site);
@@ -183,14 +219,16 @@ namespace SitePermissions
                 ctx.ExecuteQuery();
 
                 log.LogInformation($"Removed {user.UserPrincipalName} as Site Collection Administrators from {ctx.Site.Url}");
+
+                // TODO: Email the user?
             }
 
             return new OkObjectResult(users);
         }
 
-        private static async Task<List<Tuple<User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
+        private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
-            var results = new List<Tuple<User, bool>>();
+            var results = new List<Tuple<Microsoft.Graph.User, bool>>();
 
             foreach (var site in sites)
             {
@@ -224,7 +262,7 @@ namespace SitePermissions
                                 if (user != null)
                                 {
                                     var result = await SendEmail(site.DisplayName, user.DisplayName, user.Mail, log);
-                                    results.Add(new Tuple<User, bool>(user, result));
+                                    results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
                                 }
                             }
                         }
