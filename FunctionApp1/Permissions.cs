@@ -13,6 +13,7 @@ using PnP.Framework;
 using Microsoft.SharePoint.Client;
 using User = Microsoft.SharePoint.Client.User;
 using Site = Microsoft.Graph.Site;
+using PnP.Framework.Entities;
 
 namespace SitePermissions
 {
@@ -68,7 +69,7 @@ namespace SitePermissions
                                         permissions.Value.Has(PermissionKind.ManagePermissions) ||
                                         permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
-                                        await ResetGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
@@ -82,7 +83,7 @@ namespace SitePermissions
                                         permissions.Value.Has(PermissionKind.ManagePermissions) ||
                                         permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
-                                        await ResetGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
@@ -95,7 +96,7 @@ namespace SitePermissions
                                     if (!permissions.Value.Has(PermissionKind.ManagePermissions) ||
                                         permissions.Value.Has(PermissionKind.ManageWeb))
                                     {
-                                        await ResetGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
 
                                         misconfigured = true;
@@ -136,30 +137,38 @@ namespace SitePermissions
             }
             while (allSites.NextPageRequest != null && (allSites = await allSites.NextPageRequest.GetAsync()).Count > 0);
 
-            var res = await InformOwners(misconfiguredSites, graphAPIAuth, log);
+            var ownersEmailResult = await InformOwners(misconfiguredSites, graphAPIAuth, log);
 
             return new OkObjectResult(misconfiguredSites);
         }
 
-        public static async Task<bool> ResetGroup(ClientContext ctx, Globals.Group group, ILogger log)
+        public static async Task<bool> RemoveGroupPermissions(ClientContext ctx, Globals.Group group, ILogger log)
         {
             var result = true;
-            var roleAssignments = ctx.Web.RoleAssignments;
 
-            ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-            ctx.ExecuteQuery();
-
-            for (var i = 0; i < roleAssignments.Count; i++)
+            try
             {
-                var ra = roleAssignments[i];
-                if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
-                {
-                    ra.RoleDefinitionBindings.RemoveAll();
-                    ra.DeleteObject();
-                }
-            }
+                var roleAssignments = ctx.Web.RoleAssignments;
 
-            ctx.ExecuteQuery();
+                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+                ctx.ExecuteQuery();
+
+                for (var i = 0; i < roleAssignments.Count; i++)
+                {
+                    var ra = roleAssignments[i];
+                    if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
+                    {
+                        ra.RoleDefinitionBindings.RemoveAll();
+                        ra.DeleteObject();
+                    }
+                }
+
+                ctx.ExecuteQuery();
+            }
+            catch (Exception ex)
+            {
+                log.LogInformation($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+            }
 
             return result;
         }
@@ -195,35 +204,66 @@ namespace SitePermissions
         {
             var result = true;
 
-            // TODO
+            ctx.Load(ctx.Web);
+            ctx.Load(ctx.Site);
+            ctx.Load(ctx.Site.RootWeb);
+            ctx.ExecuteQuery();
+
+            List<string> lstTargetGroups = new List<string>();
+            lstTargetGroups.Add(group.GroupName); 
+
+            List<UserEntity> admins = new List<UserEntity>();
+            foreach (var targetGroup in lstTargetGroups)
+            {
+                UserEntity adminUserEntity = new UserEntity();
+                adminUserEntity.LoginName = targetGroup;
+                admins.Add(adminUserEntity);
+            }
+
+            if (admins.Count > 0)
+            {
+                ctx.Site.RootWeb.AddAdministrators(admins, true);
+            }
 
             return result;
         }
 
         private static async Task<IActionResult> RemoveSiteCollectionAdministrators(ClientContext ctx, ILogger log)
         {
-            ctx.Load(ctx.Web);
-            ctx.Load(ctx.Site);
-            ctx.Load(ctx.Site.RootWeb);
-            ctx.ExecuteQuery();
+            var removedUsers = new List<User>();
 
-            var users = ctx.Site.RootWeb.SiteUsers;
-            ctx.Load(users);
-            ctx.ExecuteQuery();
-
-            foreach (var user in users)
+            try
             {
-                user.IsSiteAdmin = false;
-                user.Update();
-                ctx.Load(user);
+                ctx.Load(ctx.Web);
+                ctx.Load(ctx.Site);
+                ctx.Load(ctx.Site.RootWeb);
                 ctx.ExecuteQuery();
 
-                log.LogInformation($"Removed {user.UserPrincipalName} as Site Collection Administrators from {ctx.Site.Url}");
+                var users = ctx.Site.RootWeb.SiteUsers;
+                ctx.Load(users);
+                ctx.ExecuteQuery();
 
-                // TODO: Email the user?
+                foreach (var user in users)
+                {
+                    if (user.IsSiteAdmin)
+                    {
+                        user.IsSiteAdmin = false;
+                        user.Update();
+                        ctx.Load(user);
+                        ctx.ExecuteQuery();
+
+                        removedUsers.Add(user);
+
+                        log.LogInformation($"Removed {user.UserPrincipalName} as Site Collection Administrators from {ctx.Site.Url}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogInformation($"Error removing site collection administrator: {ex.Message}");
             }
 
-            return new OkObjectResult(users);
+            return new OkObjectResult(removedUsers);
         }
 
         private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
