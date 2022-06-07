@@ -2,8 +2,6 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using Microsoft.Graph;
@@ -20,9 +18,11 @@ namespace SitePermissions
     {
         [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+            [TimerTrigger("0 0 0 * * Sat")] // Runs at 12AM every Saturday
+        TimerInfo myTimer, ILogger log)
         {
+            log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
+
             List<Site> misconfiguredSites = new List<Site>();
 
             var auth = new Auth();
