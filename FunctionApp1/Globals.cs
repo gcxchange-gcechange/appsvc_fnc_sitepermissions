@@ -31,6 +31,13 @@ namespace SitePermissions
         private static readonly string smtp_username = config["smtp_username"];
         private static readonly string smtp_password = config["smtp_password"];
         
+        public static string[] GetExcludedSiteIds()
+        {
+            var excludedSiteIds = config["excludeSiteIds"].Replace(" ", "").Split(",");
+            excludedSiteIds.Prepend(hubId);
+
+            return excludedSiteIds;
+        }
 
         public static string GetSMTP_link()
         {

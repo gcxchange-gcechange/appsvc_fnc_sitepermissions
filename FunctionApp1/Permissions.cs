@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
@@ -14,6 +13,7 @@ using Microsoft.SharePoint.Client;
 using User = Microsoft.SharePoint.Client.User;
 using Site = Microsoft.Graph.Site;
 using PnP.Framework.Entities;
+using System.Linq;
 
 namespace SitePermissions
 {
@@ -44,6 +44,11 @@ namespace SitePermissions
             {
                 foreach (var site in allSites)
                 {
+                    var siteId = site.Id.Split(",")[1];
+
+                    if (Globals.GetExcludedSiteIds().Contains(siteId))
+                        continue;
+
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
                     bool misconfigured = false;
 
