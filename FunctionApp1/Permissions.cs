@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using Microsoft.Graph;
-using System.Net.Mail;
 using PnP.Framework;
 using Microsoft.SharePoint.Client;
 using User = Microsoft.SharePoint.Client.User;
@@ -60,7 +59,7 @@ namespace SitePermissions
                             var actvdirGroup = ctx.Web.EnsureUser(group.GroupName);
                             ctx.Load(actvdirGroup);
                             ctx.ExecuteQuery();
-
+                            
                             var permissions = ctx.Web.GetUserEffectivePermissions(actvdirGroup.LoginName);
                             ctx.ExecuteQuery();
 
@@ -147,7 +146,7 @@ namespace SitePermissions
             return new OkObjectResult(misconfiguredSites);
         }
 
-        public static async Task<bool> RemoveGroupPermissions(ClientContext ctx, Globals.Group group, ILogger log)
+        private static async Task<bool> RemoveGroupPermissions(ClientContext ctx, Globals.Group group, ILogger log)
         {
             var result = true;
 
@@ -178,7 +177,7 @@ namespace SitePermissions
             return result;
         }
 
-        public static async Task<bool> AddGroup(ClientContext ctx, Globals.Group group, ILogger log)
+        private static async Task<bool> AddGroup(ClientContext ctx, Globals.Group group, ILogger log)
         {
             var result = true;
 
@@ -314,7 +313,7 @@ namespace SitePermissions
 
                                 if (user != null)
                                 {
-                                    var result = await SendEmail(site.DisplayName, user.DisplayName, user.Mail, log);
+                                    var result = await Email.SendMisconfiguredEmail(site.DisplayName, user.DisplayName, user.Mail, log);
                                     results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
                                 }
                             }
@@ -326,54 +325,6 @@ namespace SitePermissions
             }
 
             return results;
-        }
-
-        private static async Task<bool> SendEmail(string SiteName, string Username, string UserEmail, ILogger log)
-        {
-            var result = false;
-            string EmailSender = Globals.UserSender;
-            int smtp_port = Int16.Parse(Globals.smtp_port);
-            string smtp_link = Globals.GetSMTP_link();
-            string smtp_username = Globals.GetSMTP_username();
-            string smtp_password = Globals.GetSMTP_password();
-
-            var Body = @$"
-                        (La version française suit)<br><br>
-                        Hi { Username },<br><br>
-                        We've detected the site permissions for { SiteName } have been misconfigured. We're fixing them now. Yabadabadoo<br>
-                        <hr/>
-                        (The English version precedes)<br><br>
-                        Bonjour { Username },<br><br>
-                        We've forgotten to write a french version of this email. Refer to the one above. Yabadabadoo<br>";
-
-            MailMessage mail = new MailMessage();
-
-            mail.From = new MailAddress(EmailSender);
-            mail.To.Add(UserEmail);
-            mail.Subject = "English Subject | French Subject";
-            mail.Body = Body;
-            mail.IsBodyHtml = true;
-
-            SmtpClient SmtpServer = new SmtpClient(smtp_link);
-            SmtpServer.Port = smtp_port;
-            SmtpServer.Credentials = new System.Net.NetworkCredential(smtp_username, smtp_password);
-            SmtpServer.EnableSsl = true;
-
-            log.LogInformation($"UserEmail : {UserEmail}");
-
-            try
-            {
-                SmtpServer.Send(mail);
-                log.LogInformation("mail sent");
-                result = true;
-            }
-            catch (ServiceException ex)
-            {
-                log.LogInformation($"Error sending email for {SiteName}: {ex.Message}");
-                result = false;
-            }
-
-            return result;
         }
     }
 }
