@@ -19,3 +19,5 @@ You will need to add a file named **local.settings.json** in the **FunctionApp1*
 	- **permissionLevel** (The required permission level. This can be **Read**, **Edit**, **Full Control**, or **Site Collection Administrator**.
 
 			"[{\"groupName\": \"sdg_test\", \"groupId\": \"de7c675e-9066-457a-b1f5-8de21b03341e\", \"permissionLevel\": \"Site Collection Administrator\"}]"
+## Other Info	
+This checks the effective permissions of the group/user for the site. This means it not only checks the assigned permission to the site, but also any groups they're members of. If they're in a group with higher permissions than what's assigned at the site level (example Owner or Member groups), they effectively have the higher permissions of that group, and will be evaluated as such.
