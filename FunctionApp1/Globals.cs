@@ -21,12 +21,7 @@ namespace SitePermissions
 
         public static readonly List<Group> groups = GetGroups();
 
-        public static readonly string UserSender = config["DoNotReplyEmail"];
-        public static readonly string smtp_port = config["smtp_port"];
-
-        private static readonly string smtp_link = config["smtp_link"];
-        private static readonly string smtp_username = config["smtp_username"];
-        private static readonly string smtp_password = config["smtp_password"];
+        public static readonly string emailSenderId = config["emailSenderId"];
         
         public static string[] GetExcludedSiteIds()
         {
@@ -34,19 +29,6 @@ namespace SitePermissions
             excludedSiteIds.Prepend(hubId);
 
             return excludedSiteIds;
-        }
-
-        public static string GetSMTP_link()
-        {
-            return smtp_link;
-        }
-        public static string GetSMTP_username()
-        {
-            return smtp_username;
-        }
-        public static string GetSMTP_password()
-        {
-            return smtp_password;
         }
 
         private static List<Group> GetGroups()
