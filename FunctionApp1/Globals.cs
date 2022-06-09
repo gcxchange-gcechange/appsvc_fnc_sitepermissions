@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SitePermissions
 {
@@ -22,11 +21,11 @@ namespace SitePermissions
         public static readonly List<Group> groups = GetGroups();
 
         public static readonly string emailSenderId = config["emailSenderId"];
-        
-        public static string[] GetExcludedSiteIds()
+
+        public static List<string> GetExcludedSiteIds()
         {
-            var excludedSiteIds = config["excludeSiteIds"].Replace(" ", "").Split(",");
-            excludedSiteIds.Prepend(hubId);
+            var excludedSiteIds = new List<string>(config["excludeSiteIds"].Replace(" ", "").Split(","));
+            excludedSiteIds.Add(hubId);
 
             return excludedSiteIds;
         }

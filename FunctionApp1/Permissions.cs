@@ -11,6 +11,8 @@ using User = Microsoft.SharePoint.Client.User;
 using Site = Microsoft.Graph.Site;
 using PnP.Framework.Entities;
 using System.Linq;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.WebJobs.Extensions.Http;
 
 namespace SitePermissions
 {
@@ -18,8 +20,7 @@ namespace SitePermissions
     {
         [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
-            [TimerTrigger("0 0 0 * * Sat")] // Runs at 12AM every Saturday
-        TimerInfo myTimer, ILogger log)
+            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log)
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
@@ -39,13 +40,15 @@ namespace SitePermissions
             .Header("ConsistencyLevel", "eventual")
             .GetAsync();
 
+            var excludeSiteIds = Globals.GetExcludedSiteIds();
+
             do
             {
                 foreach (var site in allSites)
                 {
                     var siteId = site.Id.Split(",")[1];
 
-                    if (Globals.GetExcludedSiteIds().Contains(siteId))
+                    if (excludeSiteIds.Contains(siteId))
                         continue;
 
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
@@ -63,15 +66,13 @@ namespace SitePermissions
                             var permissions = ctx.Web.GetUserEffectivePermissions(actvdirGroup.LoginName);
                             ctx.ExecuteQuery();
 
-                            // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
                             switch (group.PermissionLevel)
                             {
                                 case "Read":
 
-                                    if (!permissions.Value.Has(PermissionKind.ViewPages) ||
-                                        permissions.Value.Has(PermissionKind.EditListItems) ||
-                                        permissions.Value.Has(PermissionKind.ManagePermissions) ||
-                                        permissions.Value.Has(PermissionKind.ManageWeb))
+                                    if (!PermissionLevel.HasRead(permissions) ||
+                                        PermissionLevel.HasEdit(permissions) ||
+                                        PermissionLevel.HasFullControl(permissions))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -83,9 +84,8 @@ namespace SitePermissions
 
                                 case "Edit":
 
-                                    if (!permissions.Value.Has(PermissionKind.EditListItems) ||
-                                        permissions.Value.Has(PermissionKind.ManagePermissions) ||
-                                        permissions.Value.Has(PermissionKind.ManageWeb))
+                                    if (!PermissionLevel.HasEdit(permissions) ||
+                                        PermissionLevel.HasFullControl(permissions))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -97,8 +97,7 @@ namespace SitePermissions
 
                                 case "Full Control":
 
-                                    if (!permissions.Value.Has(PermissionKind.ManagePermissions) ||
-                                        permissions.Value.Has(PermissionKind.ManageWeb))
+                                    if (!PermissionLevel.HasFullControl(permissions))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -110,7 +109,7 @@ namespace SitePermissions
 
                                 case "Site Collection Administrator":
 
-                                    if (!permissions.Value.Has(PermissionKind.ManageWeb))
+                                    if (!await IsSiteCollectionAdministrator(group.GroupName, ctx, log))
                                     {
                                         await RemoveSiteCollectionAdministrators(ctx, log);
                                         await AddSiteCollectionAdministrator(group, ctx, log);
@@ -278,6 +277,35 @@ namespace SitePermissions
             return new OkObjectResult(removedUsers);
         }
 
+        private static async Task<bool> IsSiteCollectionAdministrator(string groupName, ClientContext ctx, ILogger log)
+        {
+            try
+            {
+                ctx.Load(ctx.Web);
+                ctx.Load(ctx.Site);
+                ctx.Load(ctx.Site.RootWeb);
+                ctx.ExecuteQuery();
+
+                var users = ctx.Site.RootWeb.SiteUsers;
+                ctx.Load(users);
+                ctx.ExecuteQuery();
+
+                foreach (var user in users)
+                {
+                    if (user.Title == groupName && user.IsSiteAdmin)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogInformation($"Error verifying site collection administrator for {groupName}: {ex.Message}");
+            }
+
+            return false;
+        }
+
         private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
             var results = new List<Tuple<Microsoft.Graph.User, bool>>();
@@ -325,6 +353,21 @@ namespace SitePermissions
             }
 
             return results;
+        }
+
+        // This function can be used to debug which permissions are active
+        private static List<PermissionKind> getEffectivePermissions(ClientResult<BasePermissions> permissions)
+        {
+            var retVal = new List<PermissionKind>();
+
+            foreach (PermissionKind perm in Enum.GetValues(typeof(PermissionKind)))
+            {
+                var hasPermission = permissions.Value.Has(perm);
+                if(hasPermission)
+                    retVal.Add(perm);
+            }
+
+            return retVal;
         }
     }
 }
