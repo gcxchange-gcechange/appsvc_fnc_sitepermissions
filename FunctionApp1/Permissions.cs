@@ -10,7 +10,6 @@ using Microsoft.SharePoint.Client;
 using User = Microsoft.SharePoint.Client.User;
 using Site = Microsoft.Graph.Site;
 using PnP.Framework.Entities;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 
@@ -77,8 +76,8 @@ namespace SitePermissions
                                         PermissionLevel.HasEdit(permissions.Value) ||
                                         PermissionLevel.HasFullControl(permissions.Value))
                                     {
-                                        await RemoveGroupPermissions(ctx, group, log);
-                                        await AddGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(group, ctx, log);
+                                        await AddGroup(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -90,8 +89,8 @@ namespace SitePermissions
                                     if (!PermissionLevel.HasEdit(permissions.Value) ||
                                         PermissionLevel.HasFullControl(permissions.Value))
                                     {
-                                        await RemoveGroupPermissions(ctx, group, log);
-                                        await AddGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(group, ctx, log);
+                                        await AddGroup(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -102,8 +101,8 @@ namespace SitePermissions
 
                                     if (!PermissionLevel.HasFullControl(permissions.Value))
                                     {
-                                        await RemoveGroupPermissions(ctx, group, log);
-                                        await AddGroup(ctx, group, log);
+                                        await RemoveGroupPermissions(group, ctx, log);
+                                        await AddGroup(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -148,7 +147,8 @@ namespace SitePermissions
             return new OkObjectResult(misconfiguredSites);
         }
 
-        private static async Task<bool> RemoveGroupPermissions(ClientContext ctx, Globals.Group group, ILogger log)
+        // Removes the group for the site permission list if it exists
+        private static async Task<bool> RemoveGroupPermissions(Globals.Group group, ClientContext ctx, ILogger log)
         {
             var result = true;
 
@@ -179,7 +179,8 @@ namespace SitePermissions
             return result;
         }
 
-        private static async Task<bool> AddGroup(ClientContext ctx, Globals.Group group, ILogger log)
+        // Adds the group to the sites permission list at the level defined in group.PermissionLevel
+        private static async Task<bool> AddGroup(Globals.Group group, ClientContext ctx, ILogger log)
         {
             var result = true;
 
@@ -206,6 +207,7 @@ namespace SitePermissions
             return result;
         }
 
+        // Adds the group to the site collection administrator list
         private static async Task<bool> AddSiteCollectionAdministrator(Globals.Group group, ClientContext ctx, ILogger log)
         {
             var result = true;
@@ -242,6 +244,7 @@ namespace SitePermissions
             return result;
         }
 
+        // Removes all site collection administrators.
         private static async Task<IActionResult> RemoveSiteCollectionAdministrators(ClientContext ctx, ILogger log)
         {
             var removedUsers = new List<User>();
@@ -280,6 +283,7 @@ namespace SitePermissions
             return new OkObjectResult(removedUsers);
         }
 
+        // Returns true if the groupName is found in the site collections administrator list
         private static async Task<bool> IsSiteCollectionAdministrator(string groupName, ClientContext ctx, ILogger log)
         {
             try
@@ -310,79 +314,88 @@ namespace SitePermissions
         }
 
         // Goes through the Read, Edit, and Full Control role definitions of the site to determine if they have been changed 
+        // If any were changed it will change them back to the default (defined in PermissionLevel.cs)
         private static async Task<bool> ValidateRoleDefinitions(ClientContext ctx, ILogger log)
         {
             var isValid = true;
 
-            var readRoleDef = ctx.Web.RoleDefinitions.GetByName("Read");
-            ctx.Load(readRoleDef);
-            ctx.ExecuteQuery();
-
-            if (!PermissionLevel.HasRead(readRoleDef.BasePermissions))
+            try
             {
-                BasePermissions newPermissions = new BasePermissions();
-
-                foreach (var perm in PermissionLevel.Read)
-                {
-                    newPermissions.Set(perm);
-                }
-
-                readRoleDef.BasePermissions = newPermissions;
-
-                readRoleDef.Update();
+                var readRoleDef = ctx.Web.RoleDefinitions.GetByName("Read");
                 ctx.Load(readRoleDef);
                 ctx.ExecuteQuery();
 
-                isValid = false;
-            }
-
-            var editRoleDef = ctx.Web.RoleDefinitions.GetByName("Edit");
-            ctx.Load(editRoleDef);
-            ctx.ExecuteQuery();
-
-            if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions))
-            {
-                BasePermissions newPermissions = new BasePermissions();
-
-                foreach (var perm in PermissionLevel.Edit)
+                if (!PermissionLevel.HasRead(readRoleDef.BasePermissions))
                 {
-                    newPermissions.Set(perm);
+                    var newPermissions = new BasePermissions();
+
+                    foreach (var perm in PermissionLevel.Read)
+                    {
+                        newPermissions.Set(perm);
+                    }
+
+                    readRoleDef.BasePermissions = newPermissions;
+
+                    readRoleDef.Update();
+                    ctx.Load(readRoleDef);
+                    ctx.ExecuteQuery();
+
+                    isValid = false;
                 }
 
-                editRoleDef.BasePermissions = newPermissions;
-
-                editRoleDef.Update();
+                var editRoleDef = ctx.Web.RoleDefinitions.GetByName("Edit");
                 ctx.Load(editRoleDef);
                 ctx.ExecuteQuery();
 
-                isValid = false;
-            }
-
-            var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName("Full Control");
-            ctx.Load(fullControlRoleDef);
-            ctx.ExecuteQuery();
-
-            if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions))
-            {
-                BasePermissions newPermissions = new BasePermissions();
-
-                foreach (var perm in PermissionLevel.FullControl)
+                if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions))
                 {
-                    newPermissions.Set(perm);
+                    var newPermissions = new BasePermissions();
+
+                    foreach (var perm in PermissionLevel.Edit)
+                    {
+                        newPermissions.Set(perm);
+                    }
+
+                    editRoleDef.BasePermissions = newPermissions;
+
+                    editRoleDef.Update();
+                    ctx.Load(editRoleDef);
+                    ctx.ExecuteQuery();
+
+                    isValid = false;
                 }
 
-                fullControlRoleDef.BasePermissions = newPermissions;
-
-                fullControlRoleDef.Update();
+                var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName("Full Control");
                 ctx.Load(fullControlRoleDef);
                 ctx.ExecuteQuery();
 
-                isValid = false;
+                if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions))
+                {
+                    var newPermissions = new BasePermissions();
+
+                    foreach (var perm in PermissionLevel.FullControl)
+                    {
+                        newPermissions.Set(perm);
+                    }
+
+                    fullControlRoleDef.BasePermissions = newPermissions;
+
+                    fullControlRoleDef.Update();
+                    ctx.Load(fullControlRoleDef);
+                    ctx.ExecuteQuery();
+
+                    isValid = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error while validating role definitions: {ex}");
             }
 
             return isValid;
         }
 
+        // Go through all the sites, find the owner emails, and inform them their site settings have changed.
         private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
             var results = new List<Tuple<Microsoft.Graph.User, bool>>();

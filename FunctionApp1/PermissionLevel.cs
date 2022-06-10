@@ -36,14 +36,13 @@ namespace SitePermissions
             // If all the permissions are granted, also check to see if they have any extra.
             if(retVal)
             {
-                retVal = getEffectivePermissions(permissions).Count == masterKey.Length;
+                retVal = GetEffectivePermissions(permissions).Count == masterKey.Length;
             }  
 
             return retVal;
         }
 
-        // This function can be used to debug and see which permissions are active 
-        private static List<PermissionKind> getEffectivePermissions(BasePermissions permissions)
+        private static List<PermissionKind> GetEffectivePermissions(BasePermissions permissions)
         {
             var retVal = new List<PermissionKind>();
 
@@ -53,7 +52,7 @@ namespace SitePermissions
                 if (hasPermission)
                     retVal.Add(perm);
             }
-
+            
             return retVal;
         }
 
