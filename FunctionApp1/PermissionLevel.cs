@@ -58,7 +58,7 @@ namespace SitePermissions
         }
 
         // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
-        private static readonly PermissionKind[] Read = {
+        public static readonly PermissionKind[] Read = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ViewListItems,
@@ -75,7 +75,7 @@ namespace SitePermissions
             PermissionKind.Open
         };
 
-        private static readonly PermissionKind[] Edit = {
+        public static readonly PermissionKind[] Edit = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,
@@ -103,7 +103,7 @@ namespace SitePermissions
             PermissionKind.UpdatePersonalWebParts
         };
 
-        private static readonly PermissionKind[] FullControl = {
+        public static readonly PermissionKind[] FullControl = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,

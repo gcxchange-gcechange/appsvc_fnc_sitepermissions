@@ -131,7 +131,7 @@ namespace SitePermissions
                         }
                         catch (Exception ex)
                         {
-                            log.LogInformation($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+                            log.LogError($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
                         }
                     }
 
@@ -173,7 +173,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+                log.LogError($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
@@ -200,7 +200,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+                log.LogError($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
@@ -235,7 +235,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error addming site collection admin: {ex.Message}");
+                log.LogError($"Error addming site collection admin: {ex.Message}");
             }
             
 
@@ -274,7 +274,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error removing site collection administrator: {ex.Message}");
+                log.LogError($"Error removing site collection administrator: {ex.Message}");
             }
 
             return new OkObjectResult(removedUsers);
@@ -303,7 +303,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error verifying site collection administrator for {groupName}: {ex.Message}");
+                log.LogError($"Error verifying site collection administrator for {groupName}: {ex.Message}");
             }
 
             return false;
@@ -320,7 +320,19 @@ namespace SitePermissions
 
             if (!PermissionLevel.HasRead(readRoleDef.BasePermissions))
             {
-                // The read permission level has been altered
+                BasePermissions newPermissions = new BasePermissions();
+
+                foreach (var perm in PermissionLevel.Read)
+                {
+                    newPermissions.Set(perm);
+                }
+
+                readRoleDef.BasePermissions = newPermissions;
+
+                readRoleDef.Update();
+                ctx.Load(readRoleDef);
+                ctx.ExecuteQuery();
+
                 isValid = false;
             }
 
@@ -330,7 +342,19 @@ namespace SitePermissions
 
             if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions))
             {
-                // The edit permission level has been altered
+                BasePermissions newPermissions = new BasePermissions();
+
+                foreach (var perm in PermissionLevel.Edit)
+                {
+                    newPermissions.Set(perm);
+                }
+
+                editRoleDef.BasePermissions = newPermissions;
+
+                editRoleDef.Update();
+                ctx.Load(editRoleDef);
+                ctx.ExecuteQuery();
+
                 isValid = false;
             }
 
@@ -340,7 +364,19 @@ namespace SitePermissions
 
             if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions))
             {
-                // The full control permission level has been altered
+                BasePermissions newPermissions = new BasePermissions();
+
+                foreach (var perm in PermissionLevel.FullControl)
+                {
+                    newPermissions.Set(perm);
+                }
+
+                fullControlRoleDef.BasePermissions = newPermissions;
+
+                fullControlRoleDef.Update();
+                ctx.Load(fullControlRoleDef);
+                ctx.ExecuteQuery();
+
                 isValid = false;
             }
 

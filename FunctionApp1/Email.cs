@@ -61,7 +61,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogInformation($"Error sending email to {UserEmail}: {ex.Message}");
+                log.LogError($"Error sending email to {UserEmail}: {ex.Message}");
                 res = false;
             }
 
