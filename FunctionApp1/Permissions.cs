@@ -52,7 +52,10 @@ namespace SitePermissions
                         continue;
 
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
-                    bool misconfigured = false;
+                    var misconfigured = false;
+
+                    // Validate the default role definitions (Read, Edit, Full Control)
+                    misconfigured = await ValidateRoleDefinitions(ctx, log);
 
                     // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
@@ -70,9 +73,9 @@ namespace SitePermissions
                             {
                                 case "Read":
 
-                                    if (!PermissionLevel.HasRead(permissions) ||
-                                        PermissionLevel.HasEdit(permissions) ||
-                                        PermissionLevel.HasFullControl(permissions))
+                                    if (!PermissionLevel.HasRead(permissions.Value) ||
+                                        PermissionLevel.HasEdit(permissions.Value) ||
+                                        PermissionLevel.HasFullControl(permissions.Value))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -84,8 +87,8 @@ namespace SitePermissions
 
                                 case "Edit":
 
-                                    if (!PermissionLevel.HasEdit(permissions) ||
-                                        PermissionLevel.HasFullControl(permissions))
+                                    if (!PermissionLevel.HasEdit(permissions.Value) ||
+                                        PermissionLevel.HasFullControl(permissions.Value))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -97,7 +100,7 @@ namespace SitePermissions
 
                                 case "Full Control":
 
-                                    if (!PermissionLevel.HasFullControl(permissions))
+                                    if (!PermissionLevel.HasFullControl(permissions.Value))
                                     {
                                         await RemoveGroupPermissions(ctx, group, log);
                                         await AddGroup(ctx, group, log);
@@ -306,6 +309,44 @@ namespace SitePermissions
             return false;
         }
 
+        // Goes through the Read, Edit, and Full Control role definitions of the site to determine if they have been changed 
+        private static async Task<bool> ValidateRoleDefinitions(ClientContext ctx, ILogger log)
+        {
+            var isValid = true;
+
+            var readRoleDef = ctx.Web.RoleDefinitions.GetByName("Read");
+            ctx.Load(readRoleDef);
+            ctx.ExecuteQuery();
+
+            if (!PermissionLevel.HasRead(readRoleDef.BasePermissions))
+            {
+                // The read permission level has been altered
+                isValid = false;
+            }
+
+            var editRoleDef = ctx.Web.RoleDefinitions.GetByName("Edit");
+            ctx.Load(editRoleDef);
+            ctx.ExecuteQuery();
+
+            if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions))
+            {
+                // The edit permission level has been altered
+                isValid = false;
+            }
+
+            var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName("Full Control");
+            ctx.Load(fullControlRoleDef);
+            ctx.ExecuteQuery();
+
+            if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions))
+            {
+                // The full control permission level has been altered
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
         private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
             var results = new List<Tuple<Microsoft.Graph.User, bool>>();
@@ -353,21 +394,6 @@ namespace SitePermissions
             }
 
             return results;
-        }
-
-        // This function can be used to debug which permissions are active
-        private static List<PermissionKind> getEffectivePermissions(ClientResult<BasePermissions> permissions)
-        {
-            var retVal = new List<PermissionKind>();
-
-            foreach (PermissionKind perm in Enum.GetValues(typeof(PermissionKind)))
-            {
-                var hasPermission = permissions.Value.Has(perm);
-                if(hasPermission)
-                    retVal.Add(perm);
-            }
-
-            return retVal;
         }
     }
 }

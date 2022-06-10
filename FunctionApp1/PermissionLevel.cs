@@ -5,32 +5,53 @@ namespace SitePermissions
 {
     public static class PermissionLevel
     {
-        public static bool HasRead(ClientResult<BasePermissions> permissions)
+        public static bool HasRead(BasePermissions permissions)
         {
             return IsValid(permissions, Read);
         }
 
-        public static bool HasEdit(ClientResult<BasePermissions> permissions)
+        public static bool HasEdit(BasePermissions permissions)
         {
             return IsValid(permissions, Edit);
         }
 
-        public static bool HasFullControl(ClientResult<BasePermissions> permissions)
+        public static bool HasFullControl(BasePermissions permissions)
         {
             return IsValid(permissions, FullControl);
         }
 
-        private static bool IsValid(ClientResult<BasePermissions> permissions, PermissionKind[] masterKey)
+        private static bool IsValid(BasePermissions permissions, PermissionKind[] masterKey)
         {
             var retVal = true;
 
             foreach (var permission in masterKey)
             {
-                if (!permissions.Value.Has(permission))
+                if (!permissions.Has(permission))
                 {
                     retVal = false;
                     break;
                 }
+            }
+
+            // If all the permissions are granted, also check to see if they have any extra.
+            if(retVal)
+            {
+                retVal = getEffectivePermissions(permissions).Count == masterKey.Length;
+            }  
+
+            return retVal;
+        }
+
+        // This function can be used to debug and see which permissions are active 
+        private static List<PermissionKind> getEffectivePermissions(BasePermissions permissions)
+        {
+            var retVal = new List<PermissionKind>();
+
+            foreach (PermissionKind perm in System.Enum.GetValues(typeof(PermissionKind)))
+            {
+                var hasPermission = permissions.Has(perm);
+                if (hasPermission)
+                    retVal.Add(perm);
             }
 
             return retVal;
@@ -38,6 +59,7 @@ namespace SitePermissions
 
         // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
         private static readonly PermissionKind[] Read = {
+            PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ViewListItems,
             PermissionKind.OpenItems,
@@ -54,6 +76,7 @@ namespace SitePermissions
         };
 
         private static readonly PermissionKind[] Edit = {
+            PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,
             PermissionKind.AddListItems,
@@ -81,6 +104,7 @@ namespace SitePermissions
         };
 
         private static readonly PermissionKind[] FullControl = {
+            PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,
             PermissionKind.CancelCheckout,
@@ -114,6 +138,7 @@ namespace SitePermissions
             PermissionKind.UseClientIntegration,
             PermissionKind.Open,
             PermissionKind.EditMyUserInfo,
+            PermissionKind.AddAndCustomizePages,
             // Personal Permissions
             PermissionKind.ManagePersonalViews,
             PermissionKind.AddDelPrivateWebParts,
