@@ -45,6 +45,13 @@ namespace SitePermissions
 
         public class Group
         {
+            public Group(string groupName, string groupId, string permissionLevel)
+            {
+                GroupName = groupName;
+                GroupId = groupId;
+                PermissionLevel = permissionLevel;
+            }
+
             public string GroupName { get; set; }
             public string GroupId { get; set; }
             public string PermissionLevel { get; set; }

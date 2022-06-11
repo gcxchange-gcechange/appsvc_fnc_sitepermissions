@@ -33,8 +33,8 @@ namespace SitePermissions
                 }
             }
 
-            // If all the permissions are granted, also check to see if they have any extra.
-            if(retVal)
+            // Check for any extra permissions
+            if (retVal)
             {
                 retVal = GetEffectivePermissions(permissions).Count == masterKey.Length;
             }  

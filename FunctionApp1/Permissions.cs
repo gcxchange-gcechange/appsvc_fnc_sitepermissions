@@ -53,7 +53,7 @@ namespace SitePermissions
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
                     var misconfigured = false;
 
-                    // Validate the default role definitions (Read, Edit, Full Control)
+                    // Validate the default role definitions (Read, Edit, Full Control) have the required base permissions
                     misconfigured = await ValidateRoleDefinitions(ctx, log);
 
                     // Go through each group defined in local.settings.json
@@ -61,23 +61,18 @@ namespace SitePermissions
                     {
                         try
                         {
-                            var actvdirGroup = ctx.Web.EnsureUser(group.GroupName);
-                            ctx.Load(actvdirGroup);
-                            ctx.ExecuteQuery();
-                            
-                            var permissions = ctx.Web.GetUserEffectivePermissions(actvdirGroup.LoginName);
-                            ctx.ExecuteQuery();
+                            var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Read"), ctx, log);
+                            var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Edit"), ctx, log);
+                            var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Full Control"), ctx, log);
 
                             switch (group.PermissionLevel)
                             {
                                 case "Read":
 
-                                    if (!PermissionLevel.HasRead(permissions.Value) ||
-                                        PermissionLevel.HasEdit(permissions.Value) ||
-                                        PermissionLevel.HasFullControl(permissions.Value))
+                                    if (!hasRead || hasEdit || hasFullControl)
                                     {
-                                        await RemoveGroupPermissions(group, ctx, log);
-                                        await AddGroup(group, ctx, log);
+                                        await RemoveAllPermissionLevels(group, ctx, log);
+                                        await GrantPermissionLevel(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -86,11 +81,10 @@ namespace SitePermissions
 
                                 case "Edit":
 
-                                    if (!PermissionLevel.HasEdit(permissions.Value) ||
-                                        PermissionLevel.HasFullControl(permissions.Value))
+                                    if (!hasEdit || hasFullControl)
                                     {
-                                        await RemoveGroupPermissions(group, ctx, log);
-                                        await AddGroup(group, ctx, log);
+                                        await RemoveAllPermissionLevels(group, ctx, log);
+                                        await GrantPermissionLevel(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -99,10 +93,10 @@ namespace SitePermissions
 
                                 case "Full Control":
 
-                                    if (!PermissionLevel.HasFullControl(permissions.Value))
+                                    if (!hasFullControl)
                                     {
-                                        await RemoveGroupPermissions(group, ctx, log);
-                                        await AddGroup(group, ctx, log);
+                                        await RemoveAllPermissionLevels(group, ctx, log);
+                                        await GrantPermissionLevel(group, ctx, log);
 
                                         misconfigured = true;
                                     }
@@ -147,8 +141,71 @@ namespace SitePermissions
             return new OkObjectResult(misconfiguredSites);
         }
 
-        // Removes the group for the site permission list if it exists
-        private static async Task<bool> RemoveGroupPermissions(Globals.Group group, ClientContext ctx, ILogger log)
+        // Returns true if the group has the expected permission level
+        private static async Task<bool> HasPermissionLevel(Globals.Group group, ClientContext ctx, ILogger log)
+        {
+            var result = false;
+
+            try
+            {
+                var roleAssignments = ctx.Web.RoleAssignments;
+
+                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+                ctx.ExecuteQuery();
+
+                for (var i = 0; i < roleAssignments.Count; i++)
+                {
+                    var ra = roleAssignments[i];
+                    if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
+                    {
+                        foreach (var role in ra.RoleDefinitionBindings)
+                        {
+                            if (role.Name == group.PermissionLevel)
+                            {
+                                result = true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error validating {group.GroupName} has {group.PermissionLevel}: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        // Adds the group to the sites permission list at the level defined in group.PermissionLevel
+        private static async Task<bool> GrantPermissionLevel(Globals.Group group, ClientContext ctx, ILogger log)
+        {
+            var result = true;
+
+            try
+            {
+                var adGroup = ctx.Web.EnsureUser(group.GroupName);
+                ctx.Load(adGroup);
+                var spGroup = ctx.Web.AssociatedMemberGroup;
+                spGroup.Users.AddUser(adGroup);
+
+                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
+                var roleDefCollection = new RoleDefinitionBindingCollection(ctx);
+                roleDefCollection.Add(writeDefinition);
+                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
+
+                ctx.Load(spGroup, x => x.Users);
+                ctx.ExecuteQuery();
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+            }
+
+            return result;
+        }
+
+        // Removes all role definition bindings for the group
+        private static async Task<bool> RemoveAllPermissionLevels(Globals.Group group, ClientContext ctx, ILogger log)
         {
             var result = true;
 
@@ -174,34 +231,6 @@ namespace SitePermissions
             catch (Exception ex)
             {
                 log.LogError($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
-            }
-
-            return result;
-        }
-
-        // Adds the group to the sites permission list at the level defined in group.PermissionLevel
-        private static async Task<bool> AddGroup(Globals.Group group, ClientContext ctx, ILogger log)
-        {
-            var result = true;
-
-            try
-            {
-                var adGroup = ctx.Web.EnsureUser(group.GroupName);
-                ctx.Load(adGroup);
-                var spGroup = ctx.Web.AssociatedMemberGroup;
-                spGroup.Users.AddUser(adGroup);
-
-                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(group.PermissionLevel);
-                var roleDefCollection = new RoleDefinitionBindingCollection(ctx);
-                roleDefCollection.Add(writeDefinition);
-                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
-
-                ctx.Load(spGroup, x => x.Users);
-                ctx.ExecuteQuery();
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
@@ -318,7 +347,7 @@ namespace SitePermissions
         private static async Task<bool> ValidateRoleDefinitions(ClientContext ctx, ILogger log)
         {
             var isValid = true;
-
+            
             try
             {
                 var readRoleDef = ctx.Web.RoleDefinitions.GetByName("Read");
