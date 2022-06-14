@@ -54,46 +54,20 @@ namespace SitePermissions
                     var misconfigured = false;
 
                     // Validate the default role definitions (Read, Edit, Full Control) have the required base permissions
-                    misconfigured = await ValidateRoleDefinitions(ctx, log);
+                    misconfigured = !await ValidateRoleDefinitions(ctx, log);
 
                     // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
                     {
                         try
                         {
-                            var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Read"), ctx, log);
-                            var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Edit"), ctx, log);
-                            var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, group.GroupId, "Full Control"), ctx, log);
-
                             switch (group.PermissionLevel)
                             {
                                 case "Read":
-
-                                    if (!hasRead || hasEdit || hasFullControl)
-                                    {
-                                        await RemoveAllPermissionLevels(group, ctx, log);
-                                        await GrantPermissionLevel(group, ctx, log);
-
-                                        misconfigured = true;
-                                    }
-
-                                    break;
-
                                 case "Edit":
-
-                                    if (!hasEdit || hasFullControl)
-                                    {
-                                        await RemoveAllPermissionLevels(group, ctx, log);
-                                        await GrantPermissionLevel(group, ctx, log);
-
-                                        misconfigured = true;
-                                    }
-
-                                    break;
-
                                 case "Full Control":
 
-                                    if (!hasFullControl)
+                                    if (!await HasPermissionLevel(group, ctx, log))
                                     {
                                         await RemoveAllPermissionLevels(group, ctx, log);
                                         await GrantPermissionLevel(group, ctx, log);
@@ -117,7 +91,7 @@ namespace SitePermissions
 
                                 default:
 
-                                    log.LogInformation($"Error parsing group permission level - {group.PermissionLevel}");
+                                    log.LogError($"Error parsing group permission level - {group.PermissionLevel}");
 
                                     break;
                             }
@@ -153,7 +127,7 @@ namespace SitePermissions
                 ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
                 ctx.ExecuteQuery();
 
-                for (var i = 0; i < roleAssignments.Count; i++)
+                for (var i = 0; i < roleAssignments.Count && !result; i++)
                 {
                     var ra = roleAssignments[i];
                     if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
@@ -163,6 +137,7 @@ namespace SitePermissions
                             if (role.Name == group.PermissionLevel)
                             {
                                 result = true;
+                                break;
                             }
                         }
                     }

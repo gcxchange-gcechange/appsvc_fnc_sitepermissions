@@ -10,14 +10,10 @@ You will need to add a file named **local.settings.json** in the **FunctionApp1*
 - **appOnlySecret** - The app only secret created in SharePoint
 - **excludeSiteIds** - A string of site IDs seperated by commas. These sites will be ignored.
 - **emailSenderId** - The object ID of the user that will send emails. Make sure this user has a license to send email.
-- **groups** - An array of JSON objects seperated by a comma. 
+- **groups** - A comma seperated string of group names and permission levels. See the example below for formatting. 
 
 	- **groupName** (the name of the user/group)
 
-	- **groupId** (the ID of the user/group), 
-
 	- **permissionLevel** (The required permission level. This can be **Read**, **Edit**, **Full Control**, or **Site Collection Administrator**.
 
-			"[{\"groupName\": \"sdg_test\", \"groupId\": \"de7c675e-9066-457a-b1f5-8de21b03341e\", \"permissionLevel\": \"Site Collection Administrator\"}]"
-## Other Info	
-This checks the effective permissions of the group/user for the site. This means it not only checks the assigned permission to the site, but also any groups they're members of. If they're in a group with higher permissions than what's assigned at the site level (example Owner or Member groups), they effectively have the higher permissions of that group, and will be evaluated as such.
+			"group_name1:Read, group_name2:Edit, group_name3:Full Control, group_name4:Site Collection Administrator"

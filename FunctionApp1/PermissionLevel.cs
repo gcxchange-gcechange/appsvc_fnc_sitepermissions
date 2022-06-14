@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace SitePermissions
 {
+    // TODO: add support for Design and Contribute
     public static class PermissionLevel
     {
         public static bool HasRead(BasePermissions permissions)
