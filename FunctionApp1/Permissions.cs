@@ -59,15 +59,41 @@ namespace SitePermissions
                     // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
                     {
+                        var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, "Read"), ctx, log);
+                        var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, "Edit"), ctx, log);
+                        var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, "Full Control"), ctx, log);
+
                         try
                         {
                             switch (group.PermissionLevel)
                             {
                                 case "Read":
+
+                                    if (!hasRead || hasEdit || hasFullControl)
+                                    {
+                                        await RemoveAllPermissionLevels(group, ctx, log);
+                                        await GrantPermissionLevel(group, ctx, log);
+
+                                        misconfigured = true;
+                                    }
+
+                                    break;
+
                                 case "Edit":
+
+                                    if (!hasEdit || hasRead || hasFullControl)
+                                    {
+                                        await RemoveAllPermissionLevels(group, ctx, log);
+                                        await GrantPermissionLevel(group, ctx, log);
+
+                                        misconfigured = true;
+                                    }
+
+                                    break;
+
                                 case "Full Control":
 
-                                    if (!await HasPermissionLevel(group, ctx, log))
+                                    if (!hasFullControl || hasRead || hasEdit)
                                     {
                                         await RemoveAllPermissionLevels(group, ctx, log);
                                         await GrantPermissionLevel(group, ctx, log);
