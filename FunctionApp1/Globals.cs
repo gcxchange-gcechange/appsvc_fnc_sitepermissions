@@ -28,8 +28,11 @@ namespace SitePermissions
 
             foreach (var group in split)
             {
-                var props = group.Split(":");
-                groups.Add(new Group(props[0].Trim(), props[1].Trim()));
+                if (group != string.Empty)
+                {
+                    var props = group.Split(":");
+                    groups.Add(new Group(props[0].Trim(), props[1].Trim()));
+                }
             }
 
             return groups;
