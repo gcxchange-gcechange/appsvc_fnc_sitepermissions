@@ -45,6 +45,11 @@ namespace SitePermissions
             {
                 foreach (var site in allSites)
                 {
+                    var readGroups = new List<Globals.Group>();
+                    var editGroups = new List<Globals.Group>();
+                    var fullControlGroups = new List<Globals.Group>();
+                    var siteCollectionAdminGroups = new List<Globals.Group>();
+
                     var siteId = site.Id.Split(",")[1];
 
                     if (excludeSiteIds.Contains(siteId))
@@ -77,6 +82,8 @@ namespace SitePermissions
                                         misconfigured = true;
                                     }
 
+                                    readGroups.Add(group);
+
                                     break;
 
                                 case "Edit":
@@ -88,6 +95,8 @@ namespace SitePermissions
 
                                         misconfigured = true;
                                     }
+
+                                    editGroups.Add(group);
 
                                     break;
 
@@ -101,17 +110,18 @@ namespace SitePermissions
                                         misconfigured = true;
                                     }
 
+                                    fullControlGroups.Add(group);
+
                                     break;
 
                                 case "Site Collection Administrator":
 
                                     if (!await IsSiteCollectionAdministrator(group.GroupName, ctx, log))
                                     {
-                                        await RemoveSiteCollectionAdministrators(ctx, log);
-                                        await AddSiteCollectionAdministrator(group, ctx, log);
-
                                         misconfigured = true;
                                     }
+
+                                    siteCollectionAdminGroups.Add(group);
 
                                     break;
 
@@ -127,6 +137,19 @@ namespace SitePermissions
                             log.LogError($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
                         }
                     }
+
+                    await RemoveSiteCollectionAdministrators(ctx, log);
+                    foreach (var group in siteCollectionAdminGroups)
+                    {
+                        await AddSiteCollectionAdministrator(group, ctx, log);
+                    }
+
+                    var expectedRead = await RemoveUnknownPermissionLevels(readGroups, "Read", ctx, log);
+                    var expectedEdit = await RemoveUnknownPermissionLevels(editGroups, "Edit", ctx, log);
+                    var expectedFullControl = await RemoveUnknownPermissionLevels(fullControlGroups, "Full Control", ctx, log);
+                    var expectedGroups = await CleanseGroups(ctx, log);
+
+                    misconfigured = !misconfigured ? !(expectedRead && expectedEdit && expectedFullControl && expectedGroups) : misconfigured;
 
                     if (misconfigured)
                     {
@@ -172,6 +195,95 @@ namespace SitePermissions
             catch (Exception ex)
             {
                 log.LogError($"Error validating {group.GroupName} has {group.PermissionLevel}: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        // Goes through site permissions and removes any that are not in the expectedGroups for the permissionLevel
+        // Returns false if any were found and removed.
+        private static async Task<bool> RemoveUnknownPermissionLevels(List<Globals.Group> expectedGroups, string permissionLevel, ClientContext ctx, ILogger log)
+        {
+            var result = true;
+
+            try
+            {
+                var roleAssignments = ctx.Web.RoleAssignments;
+
+                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+                ctx.ExecuteQuery();
+
+                for (var i = 0; i < roleAssignments.Count; i++)
+                {
+                    var ra = roleAssignments[i];
+
+                    foreach (var group in expectedGroups)
+                    {
+                        if (ra.Member is User && ((User)ra.Member).Title != group.GroupName)
+                        {
+                            foreach (var role in ra.RoleDefinitionBindings)
+                            {
+                                if (role.Name == permissionLevel)
+                                {
+                                    await RemoveAllPermissionLevels(new Globals.Group(((User)ra.Member).Title, permissionLevel), ctx, log);
+                                    result = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"{ex.Message}");
+            }
+
+            return result;
+        }
+
+        // This function will remove any memebers of the site's sharepoint groups that aren't supposed to be there by default
+        // Returns false if any were found and removed.
+        private static async Task<bool> CleanseGroups(ClientContext ctx, ILogger log)
+        {
+            var result = true;
+
+            try
+            {
+                var roleAssignments = ctx.Web.RoleAssignments;
+
+                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+                ctx.ExecuteQuery();
+
+                for (var i = 0; i < roleAssignments.Count; i++)
+                {
+                    var ra = roleAssignments[i];
+
+                    if (ra.Member is Microsoft.SharePoint.Client.Group)
+                    {
+                        var oGroup = ctx.Web.SiteGroups.GetByName(ra.Member.LoginName);
+
+                        var oUserCollection = oGroup.Users;
+
+                        ctx.Load(oUserCollection);
+                        ctx.ExecuteQuery();
+
+                        foreach (var user in oUserCollection)
+                        {
+                            if (user.Title == "System Account" || user.Title.Contains(ctx.Web.Title))
+                                continue;
+
+                            oGroup.Users.RemoveByLoginName(user.LoginName);
+                            ctx.ExecuteQuery();
+
+                            result = false;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"{ex.Message}");
             }
 
             return result;
@@ -292,7 +404,7 @@ namespace SitePermissions
 
                 foreach (var user in users)
                 {
-                    if (user.IsSiteAdmin)
+                    if (user.IsSiteAdmin && user.Title != ctx.Web.Title + " Owners")
                     {
                         user.IsSiteAdmin = false;
                         user.Update();
