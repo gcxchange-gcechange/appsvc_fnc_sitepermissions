@@ -259,7 +259,7 @@ namespace SitePermissions
                 {
                     var ra = roleAssignments[i];
 
-                    if (ra.Member is Microsoft.SharePoint.Client.Group)
+                    if (ra.Member is Microsoft.SharePoint.Client.Group && (ra.Member.Title == ctx.Web.Title + " Owners" || ra.Member.Title == ctx.Web.Title + " Members" || ra.Member.Title == ctx.Web.Title + " Visitors"))
                     {
                         var oGroup = ctx.Web.SiteGroups.GetByName(ra.Member.LoginName);
 
@@ -270,7 +270,7 @@ namespace SitePermissions
 
                         foreach (var user in oUserCollection)
                         {
-                            if (user.Title == "System Account" || user.Title.Contains(ctx.Web.Title))
+                            if (user.Title == "System Account" || (user.Title == ctx.Web.Title + " Owners" || user.Title == ctx.Web.Title + " Members" || user.Title == ctx.Web.Title + " Visitors"))
                                 continue;
 
                             oGroup.Users.RemoveByLoginName(user.LoginName);
