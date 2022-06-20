@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32421.90
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SitePermissions", "FunctionApp1\SitePermissions.csproj", "{6BC957A7-709B-47F2-B1B8-4A41058E9DED}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SitePermissions", "Permissions\SitePermissions.csproj", "{6BC957A7-709B-47F2-B1B8-4A41058E9DED}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
