@@ -43,7 +43,7 @@ namespace SitePermissions
             return retVal;
         }
 
-        private static List<PermissionKind> GetEffectivePermissions(BasePermissions permissions)
+        public static List<PermissionKind> GetEffectivePermissions(BasePermissions permissions, bool readable = false)
         {
             var retVal = new List<PermissionKind>();
 
@@ -74,7 +74,7 @@ namespace SitePermissions
             PermissionKind.UseClientIntegration,
             PermissionKind.Open
         };
-
+        
         public static readonly PermissionKind[] Edit = {
             PermissionKind.EmptyMask,
             // List Permissions

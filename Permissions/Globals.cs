@@ -30,8 +30,8 @@ namespace SitePermissions
             {
                 if (group != string.Empty)
                 {
-                    var props = group.Split(":");
-                    groups.Add(new Group(props[0].Trim(), props[1].Trim()));
+                    var props = group.Split("|");
+                    groups.Add(new Group(props[0].Trim(), props[1].Trim(), props[2].Trim()));
                 }
             }
 
@@ -45,14 +45,15 @@ namespace SitePermissions
 
         public class Group
         {
-            public Group(string groupName, string permissionLevel)
+            public Group(string groupName, string id, string permissionLevel)
             {
                 GroupName = groupName;
+                Id = id;
                 PermissionLevel = permissionLevel;
             }
 
             public string GroupName { get; set; }
-
+            public string Id { get; set; }
             public string PermissionLevel { get; set; }
         }
     }

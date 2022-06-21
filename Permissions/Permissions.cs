@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using Microsoft.Graph;
 using PnP.Framework;
 using Microsoft.SharePoint.Client;
-using User = Microsoft.SharePoint.Client.User;
 using Site = Microsoft.Graph.Site;
 using PnP.Framework.Entities;
 using Microsoft.AspNetCore.Http;
@@ -23,7 +22,8 @@ namespace SitePermissions
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
-            List<Site> misconfiguredSites = new List<Site>();
+            var misconfiguredSites = new List<Site>();
+            var reports = new List<Report>();
 
             var auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
@@ -45,17 +45,20 @@ namespace SitePermissions
             {
                 foreach (var site in allSites)
                 {
-                    var readGroups = new List<Globals.Group>();
-                    var editGroups = new List<Globals.Group>();
-                    var fullControlGroups = new List<Globals.Group>();
-                    var siteCollectionAdminGroups = new List<Globals.Group>();
-
                     var siteId = site.Id.Split(",")[1];
 
                     if (excludeSiteIds.Contains(siteId))
                         continue;
 
                     var ctx = new AuthenticationManager().GetACSAppOnlyContext(site.WebUrl, Globals.appOnlyId, Globals.appOnlySecret);
+
+                    // Create a report of the site before we make any changes.
+                    reports.Add(new Report(site, ctx));
+
+                    var readGroups = new List<Globals.Group>();
+                    var editGroups = new List<Globals.Group>();
+                    var fullControlGroups = new List<Globals.Group>();
+                    var siteCollectionAdminGroups = new List<Globals.Group>();
                     var misconfigured = false;
 
                     // Validate the default role definitions (Read, Edit, Full Control) have the required base permissions
@@ -64,9 +67,9 @@ namespace SitePermissions
                     // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
                     {
-                        var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, "Read"), ctx, log);
-                        var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, "Edit"), ctx, log);
-                        var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, "Full Control"), ctx, log);
+                        var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, "Read"), ctx, log);
+                        var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, "Edit"), ctx, log);
+                        var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, "Full Control"), ctx, log);
 
                         try
                         {
@@ -116,7 +119,7 @@ namespace SitePermissions
 
                                 case "Site Collection Administrator":
 
-                                    if (!await IsSiteCollectionAdministrator(group.GroupName, ctx, log))
+                                    if (!await IsSiteCollectionAdministrator(group, ctx, log))
                                     {
                                         misconfigured = true;
                                     }
@@ -161,6 +164,8 @@ namespace SitePermissions
 
             var ownersEmailResult = await InformOwners(misconfiguredSites, graphAPIAuth, log);
 
+            // TODO: Do something with the reports.
+
             return new OkObjectResult(misconfiguredSites);
         }
 
@@ -179,7 +184,8 @@ namespace SitePermissions
                 for (var i = 0; i < roleAssignments.Count && !result; i++)
                 {
                     var ra = roleAssignments[i];
-                    if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
+                    
+                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) == group.Id)
                     {
                         foreach (var role in ra.RoleDefinitionBindings)
                         {
@@ -219,13 +225,13 @@ namespace SitePermissions
 
                     foreach (var group in expectedGroups)
                     {
-                        if (ra.Member is User && ((User)ra.Member).Title != group.GroupName)
+                        if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) != group.Id)
                         {
                             foreach (var role in ra.RoleDefinitionBindings)
                             {
                                 if (role.Name == permissionLevel)
                                 {
-                                    await RemoveAllPermissionLevels(new Globals.Group(((User)ra.Member).Title, permissionLevel), ctx, log);
+                                    await RemoveAllPermissionLevels(new Globals.Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel), ctx, log);
                                     result = false;
                                     break;
                                 }
@@ -272,10 +278,10 @@ namespace SitePermissions
                         {
                             if (user.Title == "System Account" || (user.Title == ctx.Web.Title + " Owners" || user.Title == ctx.Web.Title + " Members" || user.Title == ctx.Web.Title + " Visitors"))
                                 continue;
-
+                            
                             oGroup.Users.RemoveByLoginName(user.LoginName);
                             ctx.ExecuteQuery();
-
+                            
                             result = false;
                         }
                     }
@@ -296,6 +302,9 @@ namespace SitePermissions
 
             try
             {
+
+                // TODO: Figure out why we get an unauthorized access error when trying to ensure by Id
+                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.Id), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
                 var adGroup = ctx.Web.EnsureUser(group.GroupName);
                 ctx.Load(adGroup);
                 var spGroup = ctx.Web.AssociatedMemberGroup;
@@ -332,7 +341,7 @@ namespace SitePermissions
                 for (var i = 0; i < roleAssignments.Count; i++)
                 {
                     var ra = roleAssignments[i];
-                    if (ra.Member is User && ((User)ra.Member).Title == group.GroupName)
+                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) == group.Id)
                     {
                         ra.RoleDefinitionBindings.RemoveAll();
                         ra.DeleteObject();
@@ -361,6 +370,7 @@ namespace SitePermissions
                 ctx.Load(ctx.Site.RootWeb);
                 ctx.ExecuteQuery();
 
+                // TODO: Figure out how to use ID instead of groupName 
                 List<string> lstTargetGroups = new List<string>();
                 lstTargetGroups.Add(group.GroupName);
 
@@ -389,7 +399,7 @@ namespace SitePermissions
         // Removes all site collection administrators.
         private static async Task<IActionResult> RemoveSiteCollectionAdministrators(ClientContext ctx, ILogger log)
         {
-            var removedUsers = new List<User>();
+            var removedUsers = new List<Microsoft.SharePoint.Client.User>();
 
             try
             {
@@ -425,8 +435,8 @@ namespace SitePermissions
             return new OkObjectResult(removedUsers);
         }
 
-        // Returns true if the groupName is found in the site collections administrator list
-        private static async Task<bool> IsSiteCollectionAdministrator(string groupName, ClientContext ctx, ILogger log)
+        // Returns true if the group is found in the site collections administrator list
+        private static async Task<bool> IsSiteCollectionAdministrator(Globals.Group group, ClientContext ctx, ILogger log)
         {
             try
             {
@@ -441,7 +451,7 @@ namespace SitePermissions
 
                 foreach (var user in users)
                 {
-                    if (user.Title == groupName && user.IsSiteAdmin)
+                    if (GetObjectId(user.LoginName) == group.Id && user.IsSiteAdmin)
                     {
                         return true;
                     }
@@ -449,7 +459,7 @@ namespace SitePermissions
             }
             catch (Exception ex)
             {
-                log.LogError($"Error verifying site collection administrator for {groupName}: {ex.Message}");
+                log.LogError($"Error verifying site collection administrator for {group.GroupName}: {ex.Message}");
             }
 
             return false;
@@ -586,5 +596,11 @@ namespace SitePermissions
 
             return results;
         }
+
+        public static string GetObjectId(string loginName)
+        {
+            var split = loginName.Split('|');
+            return split[2];
+        } 
     }
 }
