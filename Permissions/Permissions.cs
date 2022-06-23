@@ -231,7 +231,7 @@ namespace SitePermissions
                             {
                                 if (GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) != group.Id)
                                 {
-                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log);
+                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
                                 }
                             }
                         }
@@ -241,7 +241,7 @@ namespace SitePermissions
                             {
                                 if (role.Name == permissionLevel)
                                 {
-                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log);
+                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
                                 }
                             }
                         }
