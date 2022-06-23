@@ -162,9 +162,9 @@ namespace SitePermissions
             }
             while (allSites.NextPageRequest != null && (allSites = await allSites.NextPageRequest.GetAsync()).Count > 0);
 
-            var ownersEmailResult = await InformOwners(misconfiguredSites, graphAPIAuth, log);
-
             await StoreData.StoreReports(executionContext, reports, "reports", log);
+
+            await InformOwners(misconfiguredSites, graphAPIAuth, log);
 
             return new OkObjectResult(misconfiguredSites);
         }
@@ -223,17 +223,25 @@ namespace SitePermissions
                 {
                     var ra = roleAssignments[i];
 
-                    foreach (var group in expectedGroups)
+                    if (ra.Member is Microsoft.SharePoint.Client.User)
                     {
-                        if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) != group.Id)
+                        if (expectedGroups.Count > 0)
+                        {
+                            foreach (var group in expectedGroups)
+                            {
+                                if (GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) != group.Id)
+                                {
+                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log);
+                                }
+                            }
+                        }
+                        else
                         {
                             foreach (var role in ra.RoleDefinitionBindings)
                             {
                                 if (role.Name == permissionLevel)
                                 {
-                                    await RemoveAllPermissionLevels(new Globals.Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel), ctx, log);
-                                    result = false;
-                                    break;
+                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log);
                                 }
                             }
                         }
@@ -328,10 +336,10 @@ namespace SitePermissions
             return result;
         }
 
-        // Removes all role definition bindings for the group
+        // Removes all role definition bindings for the group. Returns true if it was successful.
         private static async Task<bool> RemoveAllPermissionLevels(Globals.Group group, ClientContext ctx, ILogger log)
         {
-            var result = true;
+            var result = false;
 
             try
             {
@@ -347,6 +355,7 @@ namespace SitePermissions
                     {
                         ra.RoleDefinitionBindings.RemoveAll();
                         ra.DeleteObject();
+                        result = true;
                     }
                 }
 
@@ -597,6 +606,22 @@ namespace SitePermissions
             }
 
             return results;
+        }
+
+        public static async Task<bool> RemoveAllSpecificPermissionLevel(Microsoft.SharePoint.Client.RoleAssignment ra, string permissionLevel, ClientContext ctx, ILogger log)
+        {
+            var result = false;
+
+            foreach (var role in ra.RoleDefinitionBindings)
+            {
+                if (role.Name == permissionLevel)
+                {
+                    result = await RemoveAllPermissionLevels(new Globals.Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel), ctx, log);
+                    break;
+                }
+            }
+
+            return result;
         }
 
         public static string GetObjectId(string loginName)
