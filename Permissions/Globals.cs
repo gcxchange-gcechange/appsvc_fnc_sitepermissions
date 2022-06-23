@@ -6,11 +6,15 @@ namespace SitePermissions
     {
         public static readonly string hubId = GetEnvironmentVariable("hubId");
         public static readonly string clientId = GetEnvironmentVariable("clientId");
-        public static readonly string clientSecret = GetEnvironmentVariable("clientSecret");
         public static readonly string tenantId = GetEnvironmentVariable("tenantId");
         public static readonly string appOnlyId = GetEnvironmentVariable("appOnlyId");
         public static readonly string appOnlySecret = GetEnvironmentVariable("appOnlySecret");
         public static readonly string emailSenderId = GetEnvironmentVariable("emailSenderId");
+
+        public static readonly string keyVaultUrl = GetEnvironmentVariable("keyVaultUrl");
+        public static readonly string secretName = GetEnvironmentVariable("secretName");
+        public static readonly string retrieveKey = GetEnvironmentVariable("retrieveKey");
+
         public static readonly List<Group> groups = GetGroups();
 
         public static List<string> GetExcludedSiteIds()

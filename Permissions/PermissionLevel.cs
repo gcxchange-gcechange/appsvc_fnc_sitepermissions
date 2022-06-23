@@ -43,7 +43,7 @@ namespace SitePermissions
             return retVal;
         }
 
-        public static List<PermissionKind> GetEffectivePermissions(BasePermissions permissions, bool readable = false)
+        public static List<PermissionKind> GetEffectivePermissions(BasePermissions permissions)
         {
             var retVal = new List<PermissionKind>();
 

@@ -18,7 +18,7 @@ namespace SitePermissions
     {
         [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log)
+            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext executionContext)
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
@@ -27,7 +27,7 @@ namespace SitePermissions
 
             var auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
-
+            
             // Get subsites
             var sitesQueryOptions = new List<QueryOption>()
             {
@@ -164,7 +164,7 @@ namespace SitePermissions
 
             var ownersEmailResult = await InformOwners(misconfiguredSites, graphAPIAuth, log);
 
-            // TODO: Do something with the reports.
+            await StoreData.StoreReports(executionContext, reports, "reports", log);
 
             return new OkObjectResult(misconfiguredSites);
         }
@@ -265,6 +265,7 @@ namespace SitePermissions
                 {
                     var ra = roleAssignments[i];
 
+                    // Only look through the Owners, Members and Visitors SharePoint groups.
                     if (ra.Member is Microsoft.SharePoint.Client.Group && (ra.Member.Title == ctx.Web.Title + " Owners" || ra.Member.Title == ctx.Web.Title + " Members" || ra.Member.Title == ctx.Web.Title + " Visitors"))
                     {
                         var oGroup = ctx.Web.SiteGroups.GetByName(ra.Member.LoginName);
@@ -276,7 +277,8 @@ namespace SitePermissions
 
                         foreach (var user in oUserCollection)
                         {
-                            if (user.Title == "System Account" || (user.Title == ctx.Web.Title + " Owners" || user.Title == ctx.Web.Title + " Members" || user.Title == ctx.Web.Title + " Visitors"))
+                            // Ignore system accounts and the site members group
+                            if (user.Title == "System Account" || (user.Title == ctx.Web.Title + " Members" && ra.Member.Title == ctx.Web.Title + " Members"))
                                 continue;
                             
                             oGroup.Users.RemoveByLoginName(user.LoginName);
