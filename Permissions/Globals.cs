@@ -8,12 +8,11 @@ namespace SitePermissions
         public static readonly string clientId = GetEnvironmentVariable("clientId");
         public static readonly string tenantId = GetEnvironmentVariable("tenantId");
         public static readonly string appOnlyId = GetEnvironmentVariable("appOnlyId");
-        public static readonly string appOnlySecret = GetEnvironmentVariable("appOnlySecret");
         public static readonly string emailSenderId = GetEnvironmentVariable("emailSenderId");
 
         public static readonly string keyVaultUrl = GetEnvironmentVariable("keyVaultUrl");
-        public static readonly string secretName = GetEnvironmentVariable("secretName");
-        public static readonly string retrieveKey = GetEnvironmentVariable("retrieveKey");
+        public static readonly string secretNameClient = GetEnvironmentVariable("secretNameClient");
+        public static readonly string secretNameAppOnly = GetEnvironmentVariable("secretNameAppOnly");
 
         public static readonly List<Group> groups = GetGroups();
 
