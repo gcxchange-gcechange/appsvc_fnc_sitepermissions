@@ -11,7 +11,7 @@ namespace SitePermissions
         public const string Design = "Design";
         public const string Edit = "Edit";
         public const string FullControl = "Full Control";
-        public const string SiteCollectionsAdministrator = "Site Collections Administrator";
+        public const string SiteCollectionAdministrator = "Site Collection Administrator";
 
         public static bool HasRead(BasePermissions permissions)
         {

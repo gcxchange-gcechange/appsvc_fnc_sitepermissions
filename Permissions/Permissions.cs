@@ -23,6 +23,7 @@ namespace SitePermissions
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
+            var allPermissionLevels = new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl };
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
 
@@ -57,8 +58,6 @@ namespace SitePermissions
 
                     // Create a report of the site before we make any changes.
                     reports.Add(new Report(site, ctx));
-
-                    var allPermissionLevels = new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl };
 
                     var readGroups = new List<Globals.Group>();
                     var editGroups = new List<Globals.Group>();
@@ -123,7 +122,7 @@ namespace SitePermissions
 
                                     break;
 
-                                case PermissionLevel.SiteCollectionsAdministrator:
+                                case PermissionLevel.SiteCollectionAdministrator:
 
                                     if (!await IsSiteCollectionAdministrator(group, ctx, log))
                                     {
