@@ -401,7 +401,7 @@ namespace SitePermissions
                                 ra.RoleDefinitionBindings.Remove(role);
                                 result = true;
 
-                                log.LogInformation($"Removing {role.Name} from {ra.Member.LoginName}");
+                                log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
                             }
                         }
 
@@ -485,7 +485,7 @@ namespace SitePermissions
 
                         removedUsers.Add(user);
 
-                        log.LogInformation($"Removed {user.Title} from Site Collection Administrators for {ctx.Site.Url}");
+                        log.LogWarning($"Removed {user.Title} from Site Collection Administrators for {ctx.Site.Url}");
                     }
                     catch (Exception ex)
                     {
@@ -663,7 +663,7 @@ namespace SitePermissions
 
                                 if (user != null)
                                 {
-                                    var result = await Email.SendMisconfiguredEmail(site.DisplayName, user.DisplayName, user.Mail, log);
+                                    var result = await Email.SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
                                     results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
                                 }
                             }
