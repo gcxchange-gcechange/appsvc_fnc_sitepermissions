@@ -6,19 +6,26 @@ namespace SitePermissions
     // TODO: add support for Design and Contribute
     public static class PermissionLevel
     {
+        public const string Read = "Read";
+        public const string Contribute = "Contribute";
+        public const string Design = "Design";
+        public const string Edit = "Edit";
+        public const string FullControl = "Full Control";
+        public const string SiteCollectionsAdministrator = "Site Collections Administrator";
+
         public static bool HasRead(BasePermissions permissions)
         {
-            return IsValid(permissions, Read);
+            return IsValid(permissions, ReadPermissions);
         }
 
         public static bool HasEdit(BasePermissions permissions)
         {
-            return IsValid(permissions, Edit);
+            return IsValid(permissions, EditPermissions);
         }
 
         public static bool HasFullControl(BasePermissions permissions)
         {
-            return IsValid(permissions, FullControl);
+            return IsValid(permissions, FullControlPermissions);
         }
 
         private static bool IsValid(BasePermissions permissions, PermissionKind[] masterKey)
@@ -58,7 +65,7 @@ namespace SitePermissions
         }
 
         // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
-        public static readonly PermissionKind[] Read = {
+        public static readonly PermissionKind[] ReadPermissions = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ViewListItems,
@@ -75,7 +82,7 @@ namespace SitePermissions
             PermissionKind.Open
         };
         
-        public static readonly PermissionKind[] Edit = {
+        public static readonly PermissionKind[] EditPermissions = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,
@@ -103,7 +110,7 @@ namespace SitePermissions
             PermissionKind.UpdatePersonalWebParts
         };
 
-        public static readonly PermissionKind[] FullControl = {
+        public static readonly PermissionKind[] FullControlPermissions = {
             PermissionKind.EmptyMask,
             // List Permissions
             PermissionKind.ManageLists,
