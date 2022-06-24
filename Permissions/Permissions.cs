@@ -23,7 +23,6 @@ namespace SitePermissions
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
-            var allPermissionLevels = new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl };
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
 
@@ -84,7 +83,7 @@ namespace SitePermissions
 
                                     if (!hasRead || hasEdit || hasFullControl)
                                     {
-                                        await RemovePermissionLevels(group, allPermissionLevels, ctx, log);
+                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
@@ -103,7 +102,7 @@ namespace SitePermissions
 
                                     if (!hasEdit || hasRead || hasFullControl)
                                     {
-                                        await RemovePermissionLevels(group, allPermissionLevels, ctx, log);
+                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
@@ -123,7 +122,7 @@ namespace SitePermissions
 
                                     if (!hasFullControl || hasRead || hasEdit)
                                     {
-                                        await RemovePermissionLevels(group, allPermissionLevels, ctx, log);
+                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
@@ -242,8 +241,8 @@ namespace SitePermissions
             return result;
         }
 
-        // Goes through site permissions and removes any that are not in the expectedGroups for the permissionLevel
-        // Returns false if any were found and removed.
+        //Goes through site permissions and removes any that are not in the expectedGroups for the permissionLevel
+        //Returns false if any were found and removed.
         private static async Task<bool> RemoveUnknownPermissionLevels(List<Globals.Group> expectedGroups, string permissionLevel, ClientContext ctx, ILogger log)
         {
             var result = true;
@@ -259,28 +258,59 @@ namespace SitePermissions
                 {
                     var ra = roleAssignments[i];
 
-                    if (ra.Member is Microsoft.SharePoint.Client.User)
+                    if (ra.Member is Microsoft.SharePoint.Client.User && !expectedGroups.Any(x => x.Id == GetObjectId((ra.Member).LoginName)))
                     {
-                        if (expectedGroups.Count > 0)
-                        {
-                            foreach (var group in expectedGroups)
-                            {
-                                if (GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) != group.Id)
-                                {
-                                    result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
-                        }
+                        result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
                     }
                 }
             }
             catch (Exception ex)
             {
                 log.LogError($"{ex.Message}");
+            }
+
+            return result;
+        }
+
+        // Removes all role definition bindings for the group. Returns true if it was successful.
+        private static async Task<bool> RemovePermissionLevels(Globals.Group group, List<string> levelsToRemove, ClientContext ctx, ILogger log)
+        {
+            var result = false;
+
+            try
+            {
+                var roleAssignments = ctx.Web.RoleAssignments;
+
+                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
+                ctx.ExecuteQuery();
+
+                for (var i = 0; i < roleAssignments.Count; i++)
+                {
+                    var ra = roleAssignments[i];
+
+                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId((ra.Member).LoginName) == group.Id)
+                    {
+                        foreach (var role in ra.RoleDefinitionBindings.ToArray())
+                        {
+                            if (levelsToRemove.Any(x => x.Equals(role.Name)))
+                            {
+                                ra.RoleDefinitionBindings.Remove(role);
+                                result = true;
+
+                                log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
+                            }
+                        }
+
+                        ra.Update();
+                        break;
+                    }
+                }
+
+                ctx.ExecuteQuery();
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
@@ -372,48 +402,6 @@ namespace SitePermissions
             catch (Exception ex)
             {
                 log.LogError($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
-            }
-
-            return result;
-        }
-
-        // Removes all role definition bindings for the group. Returns true if it was successful.
-        private static async Task<bool> RemovePermissionLevels(Globals.Group group, List<string> levelsToRemove, ClientContext ctx, ILogger log)
-        {
-            var result = false;
-
-            try
-            {
-                var roleAssignments = ctx.Web.RoleAssignments;
-
-                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-                ctx.ExecuteQuery();
-
-                for (var i = 0; i < roleAssignments.Count; i++)
-                {
-                    var ra = roleAssignments[i];
-                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) == group.Id)
-                    {
-                        foreach (var role in ra.RoleDefinitionBindings.ToArray())
-                        {
-                            if (levelsToRemove.Any(x => x.Equals(role.Name)))
-                            {
-                                ra.RoleDefinitionBindings.Remove(role);
-                                result = true;
-
-                                log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
-                            }
-                        }
-
-                        ra.Update();
-                    }
-                }
-
-                ctx.ExecuteQuery();
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
