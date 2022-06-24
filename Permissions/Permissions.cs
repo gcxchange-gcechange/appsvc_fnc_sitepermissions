@@ -88,6 +88,11 @@ namespace SitePermissions
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
+                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.Read} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.Read} check");
                                     }
 
                                     readGroups.Add(group);
@@ -102,6 +107,12 @@ namespace SitePermissions
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
+
+                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.Edit} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.Edit} check");
                                     }
 
                                     editGroups.Add(group);
@@ -116,6 +127,12 @@ namespace SitePermissions
                                         await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
 
                                         misconfigured = true;
+
+                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.FullControl} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.FullControl} check");
                                     }
 
                                     fullControlGroups.Add(group);
@@ -127,6 +144,12 @@ namespace SitePermissions
                                     if (!await IsSiteCollectionAdministrator(group, ctx, log))
                                     {
                                         misconfigured = true;
+
+                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.SiteCollectionAdministrator} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.SiteCollectionAdministrator} check");
                                     }
 
                                     siteCollectionAdminGroups.Add(group);
@@ -147,9 +170,12 @@ namespace SitePermissions
                     }
 
                     await RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log);
-                    foreach (var group in siteCollectionAdminGroups)
+                    if (misconfigured)
                     {
-                        await AddSiteCollectionAdministrator(group, ctx, log);
+                        foreach (var group in siteCollectionAdminGroups)
+                        {
+                            await AddSiteCollectionAdministrator(group, ctx, log);
+                        }
                     }
 
                     var expectedRead = await RemoveUnknownPermissionLevels(readGroups, PermissionLevel.Read, ctx, log);
@@ -304,6 +330,8 @@ namespace SitePermissions
                             ctx.ExecuteQuery();
 
                             result = false;
+
+                            log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
                         }
                     }
                 }
@@ -338,6 +366,8 @@ namespace SitePermissions
 
                 ctx.Load(spGroup, x => x.Users);
                 ctx.ExecuteQuery();
+
+                log.LogInformation($"Gave {group.GroupName} {permissionLevel} on {ctx.Site.Url}");
             }
             catch (Exception ex)
             {
@@ -370,6 +400,8 @@ namespace SitePermissions
                             {
                                 ra.RoleDefinitionBindings.Remove(role);
                                 result = true;
+
+                                log.LogInformation($"Removing {role.Name} from {ra.Member.LoginName}");
                             }
                         }
 
@@ -523,6 +555,12 @@ namespace SitePermissions
                     ctx.ExecuteQuery();
 
                     isValid = false;
+
+                    log.LogWarning($"{PermissionLevel.Read} permission level definition is invalid");
+                }
+                else
+                {
+                    log.LogInformation($"{PermissionLevel.Read} permission level definition is valid");
                 }
 
                 var editRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.Edit);
@@ -545,6 +583,12 @@ namespace SitePermissions
                     ctx.ExecuteQuery();
 
                     isValid = false;
+
+                    log.LogWarning($"{PermissionLevel.Edit} permission level definition is invalid");
+                }
+                else
+                {
+                    log.LogInformation($"{PermissionLevel.Edit} permission level definition is valid");
                 }
 
                 var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.FullControl);
@@ -567,6 +611,12 @@ namespace SitePermissions
                     ctx.ExecuteQuery();
 
                     isValid = false;
+
+                    log.LogWarning($"{PermissionLevel.FullControl} permission level definition is invalid");
+                }
+                else 
+                { 
+                    log.LogInformation($"{PermissionLevel.FullControl} permission level definition is valid"); 
                 }
             }
             catch (Exception ex)
