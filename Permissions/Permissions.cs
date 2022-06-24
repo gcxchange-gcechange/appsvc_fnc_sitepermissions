@@ -168,7 +168,8 @@ namespace SitePermissions
                         }
                     }
 
-                    await RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log);
+                    misconfigured = !await RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log) ? true : misconfigured;
+
                     if (misconfigured)
                     {
                         foreach (var group in siteCollectionAdminGroups)
@@ -350,15 +351,16 @@ namespace SitePermissions
                         foreach (var user in oUserCollection)
                         {
                             var isMembersUser = user.Title == ctx.Web.Title + " Members";
-                            var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
+                            //var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
 
-                            // Ignore system accounts, approved admins in the owners group, and members in the member group
-                            if (user.Title == "System Account" || (isOwnersGroup && isAdmin) || (isMembersGroup && isMembersUser))
+                            // Ignore system accounts and members in the member group
+                            if (user.Title == "System Account" || (isMembersGroup && isMembersUser))
                                 continue;
 
                             oGroup.Users.RemoveByLoginName(user.LoginName);
                             ctx.ExecuteQuery();
 
+                            //if (!(isOwnersGroup && isAdmin))
                             result = false;
 
                             log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
@@ -444,8 +446,9 @@ namespace SitePermissions
         }
 
         // Removes all site collection administrators.
-        private static async Task<IActionResult> RemoveSiteCollectionAdministrators(List<Globals.Group> approvedAdminGroups, ClientContext ctx, ILogger log)
+        private static async Task<bool> RemoveSiteCollectionAdministrators(List<Globals.Group> approvedAdminGroups, ClientContext ctx, ILogger log)
         {
+            var isValid = true;
             var removedUsers = new List<Microsoft.SharePoint.Client.User>();
 
             ctx.Load(ctx.Web);
@@ -459,10 +462,9 @@ namespace SitePermissions
 
             foreach (var user in users)
             {
-                var isOwnersGroup = user.Title == ctx.Web.Title + " Owners";
                 var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
 
-                if (user.IsSiteAdmin && !isOwnersGroup && !isAdmin)
+                if (user.IsSiteAdmin && !isAdmin)
                 {
                     try
                     {
@@ -472,6 +474,7 @@ namespace SitePermissions
                         ctx.ExecuteQuery();
 
                         removedUsers.Add(user);
+                        isValid = false;
 
                         log.LogWarning($"Removed {user.Title} from Site Collection Administrators for {ctx.Site.Url}");
                     }
@@ -482,7 +485,7 @@ namespace SitePermissions
                 }
             }
 
-            return new OkObjectResult(removedUsers);
+            return isValid;
         }
 
         // Returns true if the group is found in the site collections administrator list
