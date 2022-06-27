@@ -141,6 +141,8 @@ namespace SitePermissions
                                     {
                                         misconfigured = true;
 
+                                        await Group.Helpers.AddSiteCollectionAdministrator(group, ctx, log);
+
                                         log.LogWarning($"{group.Name} didn't pass {PermissionLevel.SiteCollectionAdministrator} check");
                                     }
                                     else
@@ -166,14 +168,6 @@ namespace SitePermissions
                     }
 
                     misconfigured = !await Group.Helpers.RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log) ? true : misconfigured;
-
-                    if (misconfigured)
-                    {
-                        foreach (var group in siteCollectionAdminGroups)
-                        {
-                            await Group.Helpers.AddSiteCollectionAdministrator(group, ctx, log);
-                        }
-                    }
 
                     var validRead = await Group.Helpers.RemoveUnknownPermissionLevels(readGroups, PermissionLevel.Read, ctx, log);
                     var validEdit = await Group.Helpers.RemoveUnknownPermissionLevels(editGroups, PermissionLevel.Edit, ctx, log);

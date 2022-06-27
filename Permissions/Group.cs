@@ -108,9 +108,8 @@ namespace SitePermissions
 
             try
             {
-
                 // TODO: Figure out why we get an unauthorized access error when trying to ensure by Id
-                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.Id), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
+                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(Id), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
                 var adGroup = ctx.Web.EnsureUser(Name);
                 ctx.Load(adGroup);
                 var spGroup = ctx.Web.AssociatedMemberGroup;
