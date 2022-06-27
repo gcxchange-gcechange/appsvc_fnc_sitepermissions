@@ -9,6 +9,56 @@ namespace SitePermissions
 {
     public static class Email
     {
+        // Go through all the sites, find the owner emails, and inform them their site settings have changed.
+        public static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
+        {
+            var results = new List<Tuple<Microsoft.Graph.User, bool>>();
+
+            foreach (var site in sites)
+            {
+                var groupQueryOptions = new List<QueryOption>()
+                {
+                    new QueryOption("$search", "\"mailNickname:" + site.Name +"\"")
+                };
+
+                var groups = await graphAPIAuth.Groups
+                .Request(groupQueryOptions)
+                .Header("ConsistencyLevel", "eventual")
+                .GetAsync();
+
+                do
+                {
+                    foreach (var group in groups)
+                    {
+                        var owners = await graphAPIAuth.Groups[group.Id].Owners
+                        .Request()
+                        .GetAsync();
+
+                        do
+                        {
+                            foreach (var owner in owners)
+                            {
+                                var user = await graphAPIAuth.Users[owner.Id]
+                                .Request()
+                                .Select("displayName,mail")
+                                .GetAsync();
+
+                                if (user != null)
+                                {
+                                    var result = await Email.SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
+                                    results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
+                                }
+                            }
+                        }
+                        while (owners.NextPageRequest != null && (owners = await owners.NextPageRequest.GetAsync()).Count > 0);
+                    }
+                }
+                while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
+            }
+
+            return results;
+        }
+
         // Returns true if the email was sent successfully 
         public static async Task<bool> SendMisconfiguredEmail(string Username, string UserEmail, ILogger log)
         {

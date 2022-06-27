@@ -5,7 +5,6 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using Microsoft.Graph;
-using PnP.Framework;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
 using PnP.Framework.Entities;
@@ -58,40 +57,40 @@ namespace SitePermissions
                     // Create a report of the site before we make any changes.
                     reports.Add(new Report(site, ctx));
 
-                    var readGroups = new List<Globals.Group>();
-                    var editGroups = new List<Globals.Group>();
-                    var fullControlGroups = new List<Globals.Group>();
-                    var designGroups = new List<Globals.Group>();
-                    var contributeGroups = new List<Globals.Group>();
-                    var siteCollectionAdminGroups = new List<Globals.Group>();
+                    var readGroups = new List<Group>();
+                    var editGroups = new List<Group>();
+                    var fullControlGroups = new List<Group>();
+                    var designGroups = new List<Group>();
+                    var contributeGroups = new List<Group>();
+                    var siteCollectionAdminGroups = new List<Group>();
 
                     // Validate the default role definitions (Read, Edit, Full Control) have the required base permissions
-                    misconfigured = !await ValidateRoleDefinitions(ctx, log);
+                    misconfigured = await ValidateRoleDefinitions(ctx, log) == false;
 
                     // Go through each group defined in local.settings.json
                     foreach (var group in Globals.groups)
                     {
-                        var hasRead = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, PermissionLevel.Read), ctx, log);
-                        var hasEdit = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, PermissionLevel.Edit), ctx, log);
-                        var hasFullControl = await HasPermissionLevel(new Globals.Group(group.GroupName, group.Id, PermissionLevel.FullControl), ctx, log);
-                        
+                        var hasRead = await group.HasPermissionLevel(PermissionLevel.Read, ctx, log);
+                        var hasEdit = await group.HasPermissionLevel(PermissionLevel.Edit, ctx, log);
+                        var hasFullControl = await group.HasPermissionLevel(PermissionLevel.FullControl, ctx, log);
+
                         try
                         {
-                            switch (group.PermissionLevel)
+                            switch (group.AssignedPermissionLevel)
                             {
                                 case PermissionLevel.Read:
 
                                     if (!hasRead || hasEdit || hasFullControl)
                                     {
-                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
-                                        await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
+                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
 
                                         misconfigured = true;
-                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.Read} check");
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Read} check");
                                     }
                                     else
                                     {
-                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.Read} check");
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.Read} check");
                                     }
 
                                     readGroups.Add(group);
@@ -102,16 +101,16 @@ namespace SitePermissions
 
                                     if (!hasEdit || hasRead || hasFullControl)
                                     {
-                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
-                                        await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
+                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
+                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
 
                                         misconfigured = true;
 
-                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.Edit} check");
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Edit} check");
                                     }
                                     else
                                     {
-                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.Edit} check");
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.Edit} check");
                                     }
 
                                     editGroups.Add(group);
@@ -122,16 +121,16 @@ namespace SitePermissions
 
                                     if (!hasFullControl || hasRead || hasEdit)
                                     {
-                                        await RemovePermissionLevels(group, new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
-                                        await GrantPermissionLevel(group, group.PermissionLevel, ctx, log);
+                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
+                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
 
                                         misconfigured = true;
 
-                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.FullControl} check");
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.FullControl} check");
                                     }
                                     else
                                     {
-                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.FullControl} check");
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.FullControl} check");
                                     }
 
                                     fullControlGroups.Add(group);
@@ -140,15 +139,15 @@ namespace SitePermissions
 
                                 case PermissionLevel.SiteCollectionAdministrator:
 
-                                    if (!await IsSiteCollectionAdministrator(group, ctx, log))
+                                    if (!await group.IsSiteCollectionAdministrator(ctx, log))
                                     {
                                         misconfigured = true;
 
-                                        log.LogWarning($"{group.GroupName} didn't pass {PermissionLevel.SiteCollectionAdministrator} check");
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.SiteCollectionAdministrator} check");
                                     }
                                     else
                                     {
-                                        log.LogInformation($"{group.GroupName} passed {PermissionLevel.SiteCollectionAdministrator} check");
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.SiteCollectionAdministrator} check");
                                     }
 
                                     siteCollectionAdminGroups.Add(group);
@@ -157,36 +156,36 @@ namespace SitePermissions
 
                                 default:
 
-                                    log.LogError($"Error parsing group permission level - {group.PermissionLevel}");
+                                    log.LogError($"Error parsing group permission level - {group.AssignedPermissionLevel}");
 
                                     break;
                             }
                         }
                         catch (Exception ex)
                         {
-                            log.LogError($"Error adding {group.GroupName} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+                            log.LogError($"Error adding {group.Name} to {site.WebUrl} - {ex.Source}: {ex.Message} | {ex.InnerException}");
                         }
                     }
 
-                    misconfigured = !await RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log) ? true : misconfigured;
+                    misconfigured = !await Group.Helpers.RemoveSiteCollectionAdministrators(siteCollectionAdminGroups, ctx, log) ? true : misconfigured;
 
                     if (misconfigured)
                     {
                         foreach (var group in siteCollectionAdminGroups)
                         {
-                            await AddSiteCollectionAdministrator(group, ctx, log);
+                            await Group.Helpers.AddSiteCollectionAdministrator(group, ctx, log);
                         }
                     }
 
-                    var expectedRead = await RemoveUnknownPermissionLevels(readGroups, PermissionLevel.Read, ctx, log);
-                    var expectedEdit = await RemoveUnknownPermissionLevels(editGroups, PermissionLevel.Edit, ctx, log);
-                    var expectedFullControl = await RemoveUnknownPermissionLevels(fullControlGroups, PermissionLevel.FullControl, ctx, log);
-                    var expectedContribute = await RemoveUnknownPermissionLevels(contributeGroups, PermissionLevel.Contribute, ctx, log);
-                    var expectedDesign = await RemoveUnknownPermissionLevels(designGroups, PermissionLevel.Design, ctx, log);
+                    var validRead = await Group.Helpers.RemoveUnknownPermissionLevels(readGroups, PermissionLevel.Read, ctx, log);
+                    var validEdit = await Group.Helpers.RemoveUnknownPermissionLevels(editGroups, PermissionLevel.Edit, ctx, log);
+                    var validFullControl = await Group.Helpers.RemoveUnknownPermissionLevels(fullControlGroups, PermissionLevel.FullControl, ctx, log);
+                    var validContribute = await Group.Helpers.RemoveUnknownPermissionLevels(contributeGroups, PermissionLevel.Contribute, ctx, log);
+                    var validDesign = await Group.Helpers.RemoveUnknownPermissionLevels(designGroups, PermissionLevel.Design, ctx, log);
 
-                    var expectedGroups = await CleanseGroups(siteCollectionAdminGroups, ctx, log);
+                    var validSharePointGroups = await Group.Helpers.CleanSharePointGroups(siteCollectionAdminGroups, ctx, log);
 
-                    misconfigured = !misconfigured ? !(expectedRead && expectedEdit && expectedFullControl && expectedGroups && expectedContribute && expectedDesign) : misconfigured;
+                    misconfigured = !misconfigured ? !(validRead && validEdit && validFullControl && validSharePointGroups && validContribute && validDesign) : misconfigured;
 
                     if (misconfigured)
                     {
@@ -200,322 +199,9 @@ namespace SitePermissions
 
             await StoreData.StoreReports(executionContext, reports, "reports", log);
 
-            await InformOwners(misconfiguredSites, graphAPIAuth, log);
+            await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
 
             return new OkObjectResult(misconfiguredSites);
-        }
-
-        // Returns true if the group has the expected permission level
-        private static async Task<bool> HasPermissionLevel(Globals.Group group, ClientContext ctx, ILogger log)
-        {
-            var result = false;
-
-            try
-            {
-                var roleAssignments = ctx.Web.RoleAssignments;
-
-                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-                ctx.ExecuteQuery();
-
-                for (var i = 0; i < roleAssignments.Count && !result; i++)
-                {
-                    var ra = roleAssignments[i];
-                    
-                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName) == group.Id)
-                    {
-                        foreach (var role in ra.RoleDefinitionBindings)
-                        {
-                            if (role.Name == group.PermissionLevel)
-                            {
-                                result = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error validating {group.GroupName} has {group.PermissionLevel}: {ex.Message}");
-            }
-
-            return result;
-        }
-
-        //Goes through site permissions and removes any that are not in the expectedGroups for the permissionLevel
-        //Returns false if any were found and removed.
-        private static async Task<bool> RemoveUnknownPermissionLevels(List<Globals.Group> expectedGroups, string permissionLevel, ClientContext ctx, ILogger log)
-        {
-            var result = true;
-
-            try
-            {
-                var roleAssignments = ctx.Web.RoleAssignments;
-
-                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-                ctx.ExecuteQuery();
-
-                for (var i = 0; i < roleAssignments.Count; i++)
-                {
-                    var ra = roleAssignments[i];
-
-                    if (ra.Member is Microsoft.SharePoint.Client.User && !expectedGroups.Any(x => x.Id == GetObjectId((ra.Member).LoginName)))
-                    {
-                        result = !await RemoveAllSpecificPermissionLevel(ra, permissionLevel, ctx, log) == false && result ? false : result;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"{ex.Message}");
-            }
-
-            return result;
-        }
-
-        // Removes all role definition bindings for the group. Returns true if it was successful.
-        private static async Task<bool> RemovePermissionLevels(Globals.Group group, List<string> levelsToRemove, ClientContext ctx, ILogger log)
-        {
-            var result = false;
-
-            try
-            {
-                var roleAssignments = ctx.Web.RoleAssignments;
-
-                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-                ctx.ExecuteQuery();
-
-                for (var i = 0; i < roleAssignments.Count; i++)
-                {
-                    var ra = roleAssignments[i];
-
-                    if (ra.Member is Microsoft.SharePoint.Client.User && GetObjectId((ra.Member).LoginName) == group.Id)
-                    {
-                        foreach (var role in ra.RoleDefinitionBindings.ToArray())
-                        {
-                            if (levelsToRemove.Any(x => x.Equals(role.Name)))
-                            {
-                                ra.RoleDefinitionBindings.Remove(role);
-                                result = true;
-
-                                log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
-                            }
-                        }
-
-                        ra.Update();
-                        break;
-                    }
-                }
-
-                ctx.ExecuteQuery();
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error removing {group.GroupName} from {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
-            }
-
-            return result;
-        }
-
-        // This function will remove any memebers of the site's sharepoint groups that aren't supposed to be there by default
-        // Returns false if any were found and removed.
-        private static async Task<bool> CleanseGroups(List<Globals.Group> approvedAdminGroups, ClientContext ctx, ILogger log)
-        {
-            var result = true;
-
-            try
-            {
-                var roleAssignments = ctx.Web.RoleAssignments;
-
-                ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
-                ctx.ExecuteQuery();
-
-                for (var i = 0; i < roleAssignments.Count; i++)
-                {
-                    var ra = roleAssignments[i];
-
-                    var isOwnersGroup = ra.Member.Title == ctx.Web.Title + " Owners";
-                    var isMembersGroup = ra.Member.Title == ctx.Web.Title + " Members";
-                    var isVisitorsGroup = ra.Member.Title == ctx.Web.Title + " Visitors";
-
-                    // Only look through the Owners, Members and Visitors SharePoint groups.
-                    if (ra.Member is Microsoft.SharePoint.Client.Group && (isOwnersGroup || isMembersGroup || isVisitorsGroup))
-                    {
-                        var oGroup = ctx.Web.SiteGroups.GetByName(ra.Member.LoginName);
-
-                        var oUserCollection = oGroup.Users;
-
-                        ctx.Load(oUserCollection);
-                        ctx.ExecuteQuery();
-
-                        foreach (var user in oUserCollection)
-                        {
-                            var isMembersUser = user.Title == ctx.Web.Title + " Members";
-                            //var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
-
-                            // Ignore system accounts and members in the member group
-                            if (user.Title == "System Account" || (isMembersGroup && isMembersUser))
-                                continue;
-
-                            oGroup.Users.RemoveByLoginName(user.LoginName);
-                            ctx.ExecuteQuery();
-
-                            //if (!(isOwnersGroup && isAdmin))
-                            result = false;
-
-                            log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"{ex.Message}");
-            }
-
-            return result;
-        }
-
-        // Adds the group to the sites permission list at the level defined in group.PermissionLevel
-        private static async Task<bool> GrantPermissionLevel(Globals.Group group, string permissionLevel, ClientContext ctx, ILogger log)
-        {
-            var result = true;
-
-            try
-            {
-
-                // TODO: Figure out why we get an unauthorized access error when trying to ensure by Id
-                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(group.Id), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
-                var adGroup = ctx.Web.EnsureUser(group.GroupName);
-                ctx.Load(adGroup);
-                var spGroup = ctx.Web.AssociatedMemberGroup;
-                spGroup.Users.AddUser(adGroup);
-
-                var writeDefinition = ctx.Web.RoleDefinitions.GetByName(permissionLevel);
-                var roleDefCollection = new RoleDefinitionBindingCollection(ctx);
-                roleDefCollection.Add(writeDefinition);
-                var newRoleAssignment = ctx.Web.RoleAssignments.Add(adGroup, roleDefCollection);
-
-                ctx.Load(spGroup, x => x.Users);
-                ctx.ExecuteQuery();
-
-                log.LogInformation($"Gave {group.GroupName} {permissionLevel} on {ctx.Site.Url}");
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error adding {group.GroupName} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
-            }
-
-            return result;
-        }
-
-        // Adds the group to the site collection administrator list
-        private static async Task<bool> AddSiteCollectionAdministrator(Globals.Group group, ClientContext ctx, ILogger log)
-        {
-            var result = true;
-
-            try
-            {
-                ctx.Load(ctx.Web);
-                ctx.Load(ctx.Site);
-                ctx.Load(ctx.Site.RootWeb);
-                ctx.ExecuteQuery();
-
-                // TODO: Figure out how to use ID instead of groupName 
-
-                List<UserEntity> admins = new List<UserEntity>();
-                UserEntity adminUserEntity = new UserEntity();
-
-                adminUserEntity.LoginName = group.GroupName;
-                admins.Add(adminUserEntity);
-
-                if (admins.Count > 0)
-                {
-                    ctx.Site.RootWeb.AddAdministrators(admins, true);
-                }
-
-                log.LogInformation($"Added {group.GroupName} as Site Collection Administrators to {ctx.Site.Url}");
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error addming site collection admin to {ctx.Site.Url}: {ex.Message}");
-            }
-            
-
-            return result;
-        }
-
-        // Removes all site collection administrators.
-        private static async Task<bool> RemoveSiteCollectionAdministrators(List<Globals.Group> approvedAdminGroups, ClientContext ctx, ILogger log)
-        {
-            var isValid = true;
-            var removedUsers = new List<Microsoft.SharePoint.Client.User>();
-
-            ctx.Load(ctx.Web);
-            ctx.Load(ctx.Site);
-            ctx.Load(ctx.Site.RootWeb);
-            ctx.ExecuteQuery();
-
-            var users = ctx.Site.RootWeb.SiteUsers;
-            ctx.Load(users);
-            ctx.ExecuteQuery();
-
-            foreach (var user in users)
-            {
-                var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
-
-                if (user.IsSiteAdmin && !isAdmin)
-                {
-                    try
-                    {
-                        user.IsSiteAdmin = false;
-                        user.Update();
-                        ctx.Load(user);
-                        ctx.ExecuteQuery();
-
-                        removedUsers.Add(user);
-                        isValid = false;
-
-                        log.LogWarning($"Removed {user.Title} from Site Collection Administrators for {ctx.Site.Url}");
-                    }
-                    catch (Exception ex)
-                    {
-                        log.LogError($"Error removing {user.Title} from site collection administrator: {ex.Message}");
-                    }                        
-                }
-            }
-
-            return isValid;
-        }
-
-        // Returns true if the group is found in the site collections administrator list
-        private static async Task<bool> IsSiteCollectionAdministrator(Globals.Group group, ClientContext ctx, ILogger log)
-        {
-            try
-            {
-                ctx.Load(ctx.Web);
-                ctx.Load(ctx.Site);
-                ctx.Load(ctx.Site.RootWeb);
-                ctx.ExecuteQuery();
-
-                var users = ctx.Site.RootWeb.SiteUsers;
-                ctx.Load(users);
-                ctx.ExecuteQuery();
-
-                foreach (var user in users)
-                {
-                    if (user.IsSiteAdmin && GetObjectId(user.LoginName) == group.Id)
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Error verifying site collection administrator for {group.GroupName}: {ex.Message}");
-            }
-
-            return false;
         }
 
         // Goes through the Read, Edit, and Full Control role definitions of the site to determine if they have been changed 
@@ -617,77 +303,5 @@ namespace SitePermissions
 
             return isValid;
         }
-
-        // Go through all the sites, find the owner emails, and inform them their site settings have changed.
-        private static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
-        {
-            var results = new List<Tuple<Microsoft.Graph.User, bool>>();
-
-            foreach (var site in sites)
-            {
-                var groupQueryOptions = new List<QueryOption>()
-                {
-                    new QueryOption("$search", "\"mailNickname:" + site.Name +"\"")
-                };
-
-                var groups = await graphAPIAuth.Groups
-                .Request(groupQueryOptions)
-                .Header("ConsistencyLevel", "eventual")
-                .GetAsync();
-
-                do
-                {
-                    foreach (var group in groups)
-                    {
-                        var owners = await graphAPIAuth.Groups[group.Id].Owners
-                        .Request()
-                        .GetAsync();
-
-                        do
-                        {
-                            foreach (var owner in owners)
-                            {
-                                var user = await graphAPIAuth.Users[owner.Id]
-                                .Request()
-                                .Select("displayName,mail")
-                                .GetAsync();
-
-                                if (user != null)
-                                {
-                                    var result = await Email.SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
-                                    results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
-                                }
-                            }
-                        }
-                        while (owners.NextPageRequest != null && (owners = await owners.NextPageRequest.GetAsync()).Count > 0);
-                    }
-                }
-                while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
-            }
-
-            return results;
-        }
-
-        public static async Task<bool> RemoveAllSpecificPermissionLevel(Microsoft.SharePoint.Client.RoleAssignment ra, string permissionLevel, ClientContext ctx, ILogger log)
-        {
-            var result = false;
-
-            foreach (var role in ra.RoleDefinitionBindings)
-            {
-                if (role.Name == permissionLevel)
-                {
-                    result = await RemovePermissionLevels(new Globals.Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel), new List<string>() { permissionLevel }, ctx, log);
-                    break;
-                }
-            }
-
-            return result;
-        }
-
-        public static string GetObjectId(string loginName)
-        {
-            var split = loginName.Split('|');
-            return split.Length == 3 ? split[2] : "-1";
-        } 
     }
 }

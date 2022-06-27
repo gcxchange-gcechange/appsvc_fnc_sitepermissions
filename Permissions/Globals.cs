@@ -45,19 +45,5 @@ namespace SitePermissions
         {
             return System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.Process);
         }
-
-        public class Group
-        {
-            public Group(string groupName, string id, string permissionLevel)
-            {
-                GroupName = groupName;
-                Id = id;
-                PermissionLevel = permissionLevel;
-            }
-
-            public string GroupName { get; set; }
-            public string Id { get; set; }
-            public string PermissionLevel { get; set; }
-        }
     }
 }
