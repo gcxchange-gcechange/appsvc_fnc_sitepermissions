@@ -7,10 +7,8 @@ using System.Collections.Generic;
 using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
-using PnP.Framework.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using System.Linq;
 
 namespace SitePermissions
 {

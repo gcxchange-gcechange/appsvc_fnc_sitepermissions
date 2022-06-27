@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using UserOrGroup = SitePermissions.Group;
 
 namespace SitePermissions
 {
@@ -80,11 +81,11 @@ namespace SitePermissions
                 {
                     foreach (var role in ra.RoleDefinitionBindings)
                     {
-                        var domainGroup = new UserOrGroup();
+                        var name = ((Microsoft.SharePoint.Client.User)ra.Member).Title;
+                        var id = ((Microsoft.SharePoint.Client.User)ra.Member).LoginName.Split('|')[2];
+                        var permissionLevel = role.Name;
 
-                        domainGroup.Title = ((Microsoft.SharePoint.Client.User)ra.Member).Title;
-                        domainGroup.Id = ((Microsoft.SharePoint.Client.User)ra.Member).LoginName.Split('|')[2];
-                        domainGroup.PermissionLevel = role.Name;
+                        var domainGroup = new UserOrGroup(name, id, permissionLevel);
 
                         domainGroupReport.Add(domainGroup);
                     }
@@ -108,7 +109,7 @@ namespace SitePermissions
             {
                 var ra = roleAssignments[i];
 
-                if (ra.Member is Group && (ra.Member.Title == ctx.Web.Title + " Owners" || ra.Member.Title == ctx.Web.Title + " Members" || ra.Member.Title == ctx.Web.Title + " Visitors"))
+                if (ra.Member is Microsoft.SharePoint.Client.Group && (ra.Member.Title == ctx.Web.Title + " Owners" || ra.Member.Title == ctx.Web.Title + " Members" || ra.Member.Title == ctx.Web.Title + " Visitors"))
                 {
                     var oGroup = ctx.Web.SiteGroups.GetByName(ra.Member.LoginName);
 
@@ -190,13 +191,6 @@ namespace SitePermissions
 
             Permissions = permissionString;
         }
-    }
-
-    public class UserOrGroup
-    {
-        public string Title;
-        public string Id;
-        public string PermissionLevel;
     }
 
     public class SharePointGroup
