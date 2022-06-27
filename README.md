@@ -29,8 +29,10 @@ You will need to add a file named **local.settings.json** in the **Permissions**
 - **emailSenderId** - The object ID of the user that will send emails. Make sure this user has a license to send email.
 - **groups** - A comma seperated string of group names and permission levels. See the example below for formatting. 
 
-	- **groupName** the name of the user/group
+	- **Name** the name of the user/group
 
-	- **permissionLevel** The required permission level. Only one permission level can be specified for each group. This can be **Read**, **Edit**, **Full Control**, or **Site Collection Administrator**.
+	- **Id** the object Id of the user/group
 
-			"group_name1|objectId|Read, group_name2|objectId|Edit, group_name3|objectId|Full Control, group_name4|objectId|Site Collection Administrator"
+	- **AssignedPermissionLevel** The permission level you want to enforce. Only one permission level can be specified for each group. This can be **Read**, **Edit**, **Full Control**, or **Site Collection Administrator**.
+
+			"group1|Id1|Read, group2|Id2|Full Control, group3|Id3|Site Collection Administrator, etc."
