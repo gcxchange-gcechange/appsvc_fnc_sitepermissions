@@ -96,18 +96,18 @@ namespace SitePermissions
 
                         Bonjour { Username }, 
 
-                        Nous vous remercions de l’intérêt que vous portez à la plateforme GCÉchange et de votre participation en tant que responsable de l’une de ses collectivités. 
+                        Nous vous remercions de l’intérêt que vous manifestez à l’égard de la plateforme GCÉchange, de même que de votre participation en tant que responsable de l’une de ses collectivités. 
 
-                        Les collectivités demeurent la fonction la plus prisée de la plateforme, et nous sommes impatients de voir de nouvelles collectivités intéressantes se créer à mesure que la plateforme évolue. 
+                        Les collectivités demeurent la fonction la plus prisée de la plateforme, et nous sommes impatients de voir de nouvelles collectivités intéressantes se créer, au fur et à mesure que la plateforme évolue. 
 
                         L’une des principales caractéristiques de GCÉchange est son modèle ouvert par défaut, qui permet une collaboration permanente entre les ministères. Nous encourageons tous les responsables à maintenir la pratique d’ouverture par défaut, comme indiqué dans nos conditions d’utilisation. 
 
-                        L’équipe de GCÉchange a reçu un avis concernant la modification des autorisations relatives à la collectivité dont vous êtes responsable. Cette modification va à l’encontre du modèle ouvert par défaut de la plateforme. Veuillez noter que les paramètres par défaut seront rétablis, et nous vous prions de ne plus modifier les autorisations. 
+                        L’équipe de GCÉchange a reçu un avis concernant la modification des autorisations relatives à la collectivité dont vous êtes responsable. Cette modification va à l’encontre du modèle ouvert par défaut de la plateforme. Veuillez prendre note que les paramètres par défaut seront rétablis, et nous vous prions de ne plus modifier les autorisations. 
 
                         N’hésitez pas à nous faire part de vos questions et de vos préoccupations. Vous êtes un membre important de GCÉchange et nous souhaitons réitérer notre gratitude.  
                          
-                        Cordialement, 
-                        L’équipe de GCÉchange"
+                        Nous vous prions d’agréer l’expression de nos sentiments les meilleurs. 
+                        Équipe de GCÉchange"
                     },
                     ToRecipients = new List<Recipient>()
                     {
