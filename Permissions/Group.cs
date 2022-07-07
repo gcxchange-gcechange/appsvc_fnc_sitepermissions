@@ -108,9 +108,9 @@ namespace SitePermissions
 
             try
             {
-                // TODO: Figure out why we get an unauthorized access error when trying to ensure by Id
-                //var adGroup = ctx.Web.EnsureUserByObjectId(Guid.Parse(Id), Guid.Parse(Globals.tenantId), Microsoft.SharePoint.Client.Utilities.PrincipalType.SecurityGroup);
-                var adGroup = ctx.Web.EnsureUser(Name);
+                var user = Helpers.GetUserById(Id, ctx, log);
+
+                var adGroup = ctx.Web.EnsureUser(user.Title);
                 ctx.Load(adGroup);
                 var spGroup = ctx.Web.AssociatedMemberGroup;
                 spGroup.Users.AddUser(adGroup);
@@ -271,7 +271,6 @@ namespace SitePermissions
                 try
                 {
                     ctx.Load(ctx.Web);
-                    ctx.Load(ctx.Web.SiteUsers);
                     ctx.Load(ctx.Site);
                     ctx.Load(ctx.Site.RootWeb);
                     ctx.ExecuteQuery();
@@ -279,18 +278,7 @@ namespace SitePermissions
                     List<UserEntity> admins = new List<UserEntity>();
                     UserEntity adminUserEntity = new UserEntity();
 
-                    Microsoft.SharePoint.Client.User user = null;
-                    foreach (var _user in ctx.Web.SiteUsers)
-                    {
-                        if (GetObjectId(_user.LoginName) == group.Id)
-                        {
-                            user = _user;
-                            break;
-                        }
-                    }
-
-                    if (user == null)
-                        log.LogError($"Unable to find Site Collections Administrator by Id {group.Id}");
+                    var user = GetUserById(group.Id, ctx, log);
 
                     adminUserEntity.LoginName = user.LoginName;
 
@@ -350,6 +338,28 @@ namespace SitePermissions
                 }
 
                 return isValid;
+            }
+
+            public static Microsoft.SharePoint.Client.User GetUserById(string id, ClientContext ctx, ILogger log)
+            {
+                Microsoft.SharePoint.Client.User user = null;
+
+                ctx.Load(ctx.Web.SiteUsers);
+                ctx.ExecuteQuery();
+
+                foreach (var _user in ctx.Web.SiteUsers)
+                {
+                    if (GetObjectId(_user.LoginName) == id)
+                    {
+                        user = _user;
+                        break;
+                    }
+                }
+
+                if (user == null)
+                    log.LogError($"Unable to find user by Id {id}");
+
+                return user;
             }
 
             public static string GetObjectId(string loginName)
