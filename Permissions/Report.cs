@@ -40,25 +40,25 @@ namespace SitePermissions
         {
             var basePermissionsReport = new List<BasePermission>();
 
-            var readRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.Read);
+            var readRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Read);
             ctx.Load(readRoleDef);
             ctx.ExecuteQuery();
 
-            var readReport = new BasePermission(PermissionLevel.Read, PermissionLevel.GetEffectivePermissions(readRoleDef.BasePermissions));
+            var readReport = new BasePermission(readRoleDef.Name, PermissionLevel.GetEffectivePermissions(readRoleDef.BasePermissions));
             basePermissionsReport.Add(readReport);
 
-            var editRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.Edit);
+            var editRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Edit);
             ctx.Load(editRoleDef);
             ctx.ExecuteQuery();
 
-            var editReport = new BasePermission(PermissionLevel.Edit, PermissionLevel.GetEffectivePermissions(editRoleDef.BasePermissions));
+            var editReport = new BasePermission(editRoleDef.Name, PermissionLevel.GetEffectivePermissions(editRoleDef.BasePermissions));
             basePermissionsReport.Add(editReport);
 
-            var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.FullControl);
+            var fullControlRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.FullControl);
             ctx.Load(fullControlRoleDef);
             ctx.ExecuteQuery();
 
-            var fullControlReport = new BasePermission(PermissionLevel.FullControl, PermissionLevel.GetEffectivePermissions(fullControlRoleDef.BasePermissions));
+            var fullControlReport = new BasePermission(fullControlRoleDef.Name, PermissionLevel.GetEffectivePermissions(fullControlRoleDef.BasePermissions));
             basePermissionsReport.Add(fullControlReport);
 
             return basePermissionsReport;

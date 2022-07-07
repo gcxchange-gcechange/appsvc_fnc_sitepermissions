@@ -204,11 +204,11 @@ namespace SitePermissions
             
             try
             {
-                var readRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.Read);
+                var readRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Read);
                 ctx.Load(readRoleDef);
                 ctx.ExecuteQuery();
 
-                if (!PermissionLevel.HasRead(readRoleDef.BasePermissions))
+                if (!PermissionLevel.HasRead(readRoleDef.BasePermissions) || readRoleDef.Name != PermissionLevel.Read)
                 {
                     var newPermissions = new BasePermissions();
 
@@ -217,6 +217,7 @@ namespace SitePermissions
                         newPermissions.Set(perm);
                     }
 
+                    readRoleDef.Name = PermissionLevel.Read;
                     readRoleDef.BasePermissions = newPermissions;
 
                     readRoleDef.Update();
@@ -232,11 +233,11 @@ namespace SitePermissions
                     log.LogInformation($"{PermissionLevel.Read} permission level definition is valid");
                 }
 
-                var editRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.Edit);
+                var editRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Edit);
                 ctx.Load(editRoleDef);
                 ctx.ExecuteQuery();
 
-                if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions))
+                if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions) || editRoleDef.Name != PermissionLevel.Edit)
                 {
                     var newPermissions = new BasePermissions();
 
@@ -245,6 +246,7 @@ namespace SitePermissions
                         newPermissions.Set(perm);
                     }
 
+                    editRoleDef.Name = PermissionLevel.Edit;
                     editRoleDef.BasePermissions = newPermissions;
 
                     editRoleDef.Update();
@@ -260,11 +262,11 @@ namespace SitePermissions
                     log.LogInformation($"{PermissionLevel.Edit} permission level definition is valid");
                 }
 
-                var fullControlRoleDef = ctx.Web.RoleDefinitions.GetByName(PermissionLevel.FullControl);
+                var fullControlRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.FullControl);
                 ctx.Load(fullControlRoleDef);
                 ctx.ExecuteQuery();
 
-                if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions))
+                if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions) || fullControlRoleDef.Name != PermissionLevel.FullControl)
                 {
                     var newPermissions = new BasePermissions();
 
@@ -273,6 +275,7 @@ namespace SitePermissions
                         newPermissions.Set(perm);
                     }
 
+                    fullControlRoleDef.Name = PermissionLevel.FullControl;
                     fullControlRoleDef.BasePermissions = newPermissions;
 
                     fullControlRoleDef.Update();

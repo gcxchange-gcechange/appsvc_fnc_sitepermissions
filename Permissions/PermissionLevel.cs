@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SitePermissions
 {
-    // TODO: add support for Design and Contribute
+    // TODO: add support for Design, Contribute, Limited Access, and View Only
     public static class PermissionLevel
     {
         public const string Read = "Read";
@@ -63,6 +63,17 @@ namespace SitePermissions
             
             return retVal;
         }
+        public enum RoleDefinitionIds
+        {
+            FullControl = 1073741829,
+            Design = 1073741828,
+            Edit = 1073741830,
+            Contribute = 1073741827,
+            Read = 1073741826,
+            LimitedAccess = 1073741825,
+            ViewOnly = 1073741924
+        }
+
 
         // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
         public static readonly PermissionKind[] ReadPermissions = {
