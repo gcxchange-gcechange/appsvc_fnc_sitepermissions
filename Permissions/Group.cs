@@ -271,22 +271,32 @@ namespace SitePermissions
                 try
                 {
                     ctx.Load(ctx.Web);
+                    ctx.Load(ctx.Web.SiteUsers);
                     ctx.Load(ctx.Site);
                     ctx.Load(ctx.Site.RootWeb);
                     ctx.ExecuteQuery();
 
-                    // TODO: Figure out how to use ID instead of groupName 
-
                     List<UserEntity> admins = new List<UserEntity>();
                     UserEntity adminUserEntity = new UserEntity();
 
-                    adminUserEntity.LoginName = group.Name;
+                    Microsoft.SharePoint.Client.User user = null;
+                    foreach (var _user in ctx.Web.SiteUsers)
+                    {
+                        if (GetObjectId(_user.LoginName) == group.Id)
+                        {
+                            user = _user;
+                            break;
+                        }
+                    }
+
+                    if (user == null)
+                        log.LogError($"Unable to find Site Collections Administrator by Id {group.Id}");
+
+                    adminUserEntity.LoginName = user.LoginName;
+
                     admins.Add(adminUserEntity);
 
-                    if (admins.Count > 0)
-                    {
-                        ctx.Site.RootWeb.AddAdministrators(admins, true);
-                    }
+                    ctx.Site.RootWeb.AddAdministrators(admins, true);
 
                     log.LogInformation($"Added {group.Name} as Site Collection Administrators to {ctx.Site.Url}");
                 }
