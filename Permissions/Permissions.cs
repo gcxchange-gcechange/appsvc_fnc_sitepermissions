@@ -69,7 +69,9 @@ namespace SitePermissions
                     foreach (var group in Globals.groups)
                     {
                         var hasRead = await group.HasPermissionLevel(PermissionLevel.Read, ctx, log);
+                        var hasContribute = await group.HasPermissionLevel(PermissionLevel.Contribute, ctx, log);
                         var hasEdit = await group.HasPermissionLevel(PermissionLevel.Edit, ctx, log);
+                        var hasDesign = await group.HasPermissionLevel(PermissionLevel.Design, ctx, log);
                         var hasFullControl = await group.HasPermissionLevel(PermissionLevel.FullControl, ctx, log);
 
                         try
@@ -78,7 +80,7 @@ namespace SitePermissions
                             {
                                 case PermissionLevel.Read:
 
-                                    if (!hasRead || hasEdit || hasFullControl)
+                                    if (!hasRead || hasContribute || hasEdit || hasDesign || hasFullControl)
                                     {
                                         await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
                                         await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
@@ -95,9 +97,28 @@ namespace SitePermissions
 
                                     break;
 
+                                case PermissionLevel.Contribute:
+
+                                    if (!hasContribute || hasRead || hasEdit || hasDesign || hasFullControl)
+                                    {
+                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+
+                                        misconfigured = true;
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Contribute} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.Contribute} check");
+                                    }
+
+                                    readGroups.Add(group);
+
+                                    break;
+
                                 case PermissionLevel.Edit:
 
-                                    if (!hasEdit || hasRead || hasFullControl)
+                                    if (!hasEdit || hasRead || hasContribute || hasDesign || hasFullControl)
                                     {
                                         await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
                                         await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
@@ -115,9 +136,29 @@ namespace SitePermissions
 
                                     break;
 
+                                case PermissionLevel.Design:
+
+                                    if (!hasDesign || hasRead || hasContribute || hasEdit || hasFullControl)
+                                    {
+                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+
+                                        misconfigured = true;
+
+                                        log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Design} check");
+                                    }
+                                    else
+                                    {
+                                        log.LogInformation($"{group.Name} passed {PermissionLevel.Design} check");
+                                    }
+
+                                    designGroups.Add(group);
+
+                                    break;
+
                                 case PermissionLevel.FullControl:
 
-                                    if (!hasFullControl || hasRead || hasEdit)
+                                    if (!hasFullControl || hasRead || hasContribute || hasEdit || hasDesign)
                                     {
                                         await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
                                         await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
@@ -233,6 +274,35 @@ namespace SitePermissions
                     log.LogInformation($"{PermissionLevel.Read} permission level definition is valid");
                 }
 
+                var contributeRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Contribute);
+                ctx.Load(contributeRoleDef);
+                ctx.ExecuteQuery();
+
+                if (!PermissionLevel.HasContribute(contributeRoleDef.BasePermissions) || contributeRoleDef.Name != PermissionLevel.Contribute)
+                {
+                    var newPermissions = new BasePermissions();
+
+                    foreach (var perm in PermissionLevel.ContributePermissions)
+                    {
+                        newPermissions.Set(perm);
+                    }
+
+                    contributeRoleDef.Name = PermissionLevel.Contribute;
+                    contributeRoleDef.BasePermissions = newPermissions;
+
+                    contributeRoleDef.Update();
+                    ctx.Load(contributeRoleDef);
+                    ctx.ExecuteQuery();
+
+                    isValid = false;
+
+                    log.LogWarning($"{PermissionLevel.Contribute} permission level definition is invalid");
+                }
+                else
+                {
+                    log.LogInformation($"{PermissionLevel.Contribute} permission level definition is valid");
+                }
+
                 var editRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Edit);
                 ctx.Load(editRoleDef);
                 ctx.ExecuteQuery();
@@ -260,6 +330,35 @@ namespace SitePermissions
                 else
                 {
                     log.LogInformation($"{PermissionLevel.Edit} permission level definition is valid");
+                }
+
+                var designRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Design);
+                ctx.Load(designRoleDef);
+                ctx.ExecuteQuery();
+
+                if (!PermissionLevel.HasDesign(designRoleDef.BasePermissions) || designRoleDef.Name != PermissionLevel.Design)
+                {
+                    var newPermissions = new BasePermissions();
+
+                    foreach (var perm in PermissionLevel.DesignPermissions)
+                    {
+                        newPermissions.Set(perm);
+                    }
+
+                    designRoleDef.Name = PermissionLevel.Design;
+                    designRoleDef.BasePermissions = newPermissions;
+
+                    designRoleDef.Update();
+                    ctx.Load(designRoleDef);
+                    ctx.ExecuteQuery();
+
+                    isValid = false;
+
+                    log.LogWarning($"{PermissionLevel.Design} permission level definition is invalid");
+                }
+                else
+                {
+                    log.LogInformation($"{PermissionLevel.Design} permission level definition is valid");
                 }
 
                 var fullControlRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.FullControl);

@@ -47,12 +47,26 @@ namespace SitePermissions
             var readReport = new BasePermission(readRoleDef.Name, PermissionLevel.GetEffectivePermissions(readRoleDef.BasePermissions));
             basePermissionsReport.Add(readReport);
 
+            var contributeRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Contribute);
+            ctx.Load(contributeRoleDef);
+            ctx.ExecuteQuery();
+
+            var contributeReport = new BasePermission(contributeRoleDef.Name, PermissionLevel.GetEffectivePermissions(contributeRoleDef.BasePermissions));
+            basePermissionsReport.Add(contributeReport);
+
             var editRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Edit);
             ctx.Load(editRoleDef);
             ctx.ExecuteQuery();
 
             var editReport = new BasePermission(editRoleDef.Name, PermissionLevel.GetEffectivePermissions(editRoleDef.BasePermissions));
             basePermissionsReport.Add(editReport);
+
+            var designRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Design);
+            ctx.Load(designRoleDef);
+            ctx.ExecuteQuery();
+
+            var designReport = new BasePermission(designRoleDef.Name, PermissionLevel.GetEffectivePermissions(designRoleDef.BasePermissions));
+            basePermissionsReport.Add(designReport);
 
             var fullControlRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.FullControl);
             ctx.Load(fullControlRoleDef);

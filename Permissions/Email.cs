@@ -45,7 +45,7 @@ namespace SitePermissions
 
                                 if (user != null)
                                 {
-                                    var result = await Email.SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
+                                    var result = await SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
                                     results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
                                 }
                             }

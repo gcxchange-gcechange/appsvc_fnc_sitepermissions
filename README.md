@@ -33,6 +33,6 @@ You will need to add a file named **local.settings.json** in the **Permissions**
 
 	- **Id** the object Id of the user/group
 
-	- **AssignedPermissionLevel** The permission level you want to enforce. Only one permission level can be specified for each group. This can be **Read**, **Edit**, **Full Control**, or **Site Collection Administrator**.
+	- **AssignedPermissionLevel** The permission level you want to enforce. Only one permission level can be specified for each group. This can be **Read**, **Contribute**, **Edit**, **Design**, **Full Control**, or **Site Collection Administrator**.
 
 			"name1|Id1|Read, name2|Id2|Full Control, name3|Id3|Site Collection Administrator, etc."

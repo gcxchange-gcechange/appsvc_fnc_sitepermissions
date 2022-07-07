@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace SitePermissions
 {
-    // TODO: add support for Design, Contribute, Limited Access, and View Only
+    // TODO: add support for Limited Access and View Only
     public static class PermissionLevel
     {
         public const string Read = "Read";
@@ -18,9 +18,19 @@ namespace SitePermissions
             return IsValid(permissions, ReadPermissions);
         }
 
+        public static bool HasContribute(BasePermissions permissions)
+        {
+            return IsValid(permissions, ContributePermissions);
+        }
+
         public static bool HasEdit(BasePermissions permissions)
         {
             return IsValid(permissions, EditPermissions);
+        }
+
+        public static bool HasDesign(BasePermissions permissions)
+        {
+            return IsValid(permissions, DesignPermissions);
         }
 
         public static bool HasFullControl(BasePermissions permissions)
@@ -63,6 +73,7 @@ namespace SitePermissions
             
             return retVal;
         }
+
         public enum RoleDefinitionIds
         {
             FullControl = 1073741829,
@@ -73,7 +84,6 @@ namespace SitePermissions
             LimitedAccess = 1073741825,
             ViewOnly = 1073741924
         }
-
 
         // https://pnp.github.io/pnpcore/api/PnP.Core.Model.SharePoint.PermissionKind.html
         public static readonly PermissionKind[] ReadPermissions = {
@@ -92,7 +102,34 @@ namespace SitePermissions
             PermissionKind.UseClientIntegration,
             PermissionKind.Open
         };
-        
+
+        public static readonly PermissionKind[] ContributePermissions = {
+            PermissionKind.EmptyMask,
+            // List Permissions
+            PermissionKind.AddListItems,
+            PermissionKind.EditListItems,
+            PermissionKind.DeleteListItems,
+            PermissionKind.ViewListItems,
+            PermissionKind.OpenItems,
+            PermissionKind.ViewVersions,
+            PermissionKind.DeleteVersions,
+            PermissionKind.CreateAlerts,
+            PermissionKind.ViewFormPages,
+            // Site Permissions
+            PermissionKind.BrowseDirectories,
+            PermissionKind.CreateSSCSite,
+            PermissionKind.ViewPages,
+            PermissionKind.BrowseUserInfo,
+            PermissionKind.UseRemoteAPIs,
+            PermissionKind.UseClientIntegration,
+            PermissionKind.Open,
+            PermissionKind.EditMyUserInfo,
+            // Personal Permissions
+            PermissionKind.ManagePersonalViews,
+            PermissionKind.AddDelPrivateWebParts,
+            PermissionKind.UpdatePersonalWebParts
+        };
+
         public static readonly PermissionKind[] EditPermissions = {
             PermissionKind.EmptyMask,
             // List Permissions
@@ -111,6 +148,39 @@ namespace SitePermissions
             PermissionKind.CreateSSCSite,
             PermissionKind.BrowseUserInfo,
             PermissionKind.ViewPages,
+            PermissionKind.UseRemoteAPIs,
+            PermissionKind.UseClientIntegration,
+            PermissionKind.Open,
+            PermissionKind.EditMyUserInfo,
+            // Personal Permissions
+            PermissionKind.ManagePersonalViews,
+            PermissionKind.AddDelPrivateWebParts,
+            PermissionKind.UpdatePersonalWebParts
+        };
+
+        public static readonly PermissionKind[] DesignPermissions = {
+            PermissionKind.EmptyMask,
+            // List Permissions
+            PermissionKind.ManageLists,
+            PermissionKind.CancelCheckout,
+            PermissionKind.AddListItems,
+            PermissionKind.EditListItems,
+            PermissionKind.DeleteListItems,
+            PermissionKind.ViewListItems,
+            PermissionKind.ApproveItems,
+            PermissionKind.OpenItems,
+            PermissionKind.ViewVersions,
+            PermissionKind.DeleteVersions,
+            PermissionKind.CreateAlerts,
+            PermissionKind.ViewFormPages,
+            // Site Permissions
+            PermissionKind.AddAndCustomizePages,
+            PermissionKind.ApplyThemeAndBorder,
+            PermissionKind.ApplyStyleSheets,
+            PermissionKind.BrowseDirectories,
+            PermissionKind.CreateSSCSite,
+            PermissionKind.ViewPages,
+            PermissionKind.BrowseUserInfo,
             PermissionKind.UseRemoteAPIs,
             PermissionKind.UseClientIntegration,
             PermissionKind.Open,

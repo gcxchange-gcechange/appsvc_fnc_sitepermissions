@@ -182,14 +182,14 @@ namespace SitePermissions
                     {
                         var ra = roleAssignments[i];
 
-                        if (ra.Member is Microsoft.SharePoint.Client.User && !expectedGroups.Any(x => x.Id == Group.Helpers.GetObjectId((ra.Member).LoginName)))
+                        if (ra.Member is Microsoft.SharePoint.Client.User && !expectedGroups.Any(x => x.Id == GetObjectId((ra.Member).LoginName)))
                         {
 
                             foreach (var role in ra.RoleDefinitionBindings)
                             {
                                 if (role.Name == permissionLevel)
                                 {
-                                    var group = new Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, Group.Helpers.GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel);
+                                    var group = new Group(((Microsoft.SharePoint.Client.User)ra.Member).Title, GetObjectId(((Microsoft.SharePoint.Client.User)ra.Member).LoginName), permissionLevel);
                                     result = !await group.RemovePermissionLevels(new List<string>() { permissionLevel }, ctx, log) == false && result ? false : result;
                                 }
                             }
