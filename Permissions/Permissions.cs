@@ -7,8 +7,6 @@ using System.Collections.Generic;
 using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs.Extensions.Http;
 
 namespace SitePermissions
 {
@@ -16,7 +14,7 @@ namespace SitePermissions
     {
         [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log, ExecutionContext executionContext)
+            [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 

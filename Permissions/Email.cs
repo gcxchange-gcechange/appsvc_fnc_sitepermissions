@@ -70,7 +70,7 @@ namespace SitePermissions
             {
                 var message = new Message
                 {
-                    Subject = "English Subject | French Subject",
+                    Subject = "An important message from GCXchange | Un message important de GCÉchange",
                     Body = new ItemBody
                     {
                         ContentType = BodyType.Text,
