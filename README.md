@@ -1,19 +1,13 @@
 ##  Site Permissions App Function
-This app function checks subsite configurations to make sure certain permissions are set. If it detects any misconfigurations it will reconfigure them + inform site owners. The function app is triggered on a timer set for every Saturday at 12 AM.
+This app function checks subsite configurations to make sure certain permissions are in place. If it detects any misconfigurations it will reconfigure them + inform site owners. The function app is triggered on a timer set for every Saturday at 12 AM.
 ##  API Permissions
 Your app registration will need the following API permissions
 ### Microsoft Graph
-- **Directory.Read.All** - Read directory data
 - **Group.Read.All** - Read all groups
-- **GroupMember.ReadWrite.All** - Read and write all group memberships
+- **GroupMember.Read.All** - Read all group memberships
 - **Mail.Send** - Send mail as any user
-- **Sites.FullControl.All** - Have full control of all site collections
-- **User.Read** - Sign in and read user profile
+- **Sites.Read.All** - Read all site collections
 - **User.Read.All** - Read all users' full profiles
-- **User.ReadWrite.All** - Read and write all users' full profiles
-### SharePoint
-- **Sites.FullControl.All** - Have full control of all site collections
-Your app only permissions required are
 ### App Only
 - Full Control on the tenant and site collection
 ## How To Setup
