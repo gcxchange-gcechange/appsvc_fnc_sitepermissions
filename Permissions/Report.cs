@@ -44,35 +44,35 @@ namespace SitePermissions
             ctx.Load(readRoleDef);
             ctx.ExecuteQuery();
 
-            var readReport = new BasePermission(readRoleDef.Name, PermissionLevel.GetEffectivePermissions(readRoleDef.BasePermissions));
+            var readReport = new BasePermission(readRoleDef.Name, (int)PermissionLevel.RoleDefinitionIds.Read, PermissionLevel.GetEffectivePermissions(readRoleDef.BasePermissions));
             basePermissionsReport.Add(readReport);
 
             var contributeRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Contribute);
             ctx.Load(contributeRoleDef);
             ctx.ExecuteQuery();
 
-            var contributeReport = new BasePermission(contributeRoleDef.Name, PermissionLevel.GetEffectivePermissions(contributeRoleDef.BasePermissions));
+            var contributeReport = new BasePermission(contributeRoleDef.Name, (int)PermissionLevel.RoleDefinitionIds.Contribute, PermissionLevel.GetEffectivePermissions(contributeRoleDef.BasePermissions));
             basePermissionsReport.Add(contributeReport);
 
             var editRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Edit);
             ctx.Load(editRoleDef);
             ctx.ExecuteQuery();
 
-            var editReport = new BasePermission(editRoleDef.Name, PermissionLevel.GetEffectivePermissions(editRoleDef.BasePermissions));
+            var editReport = new BasePermission(editRoleDef.Name, (int)PermissionLevel.RoleDefinitionIds.Edit, PermissionLevel.GetEffectivePermissions(editRoleDef.BasePermissions));
             basePermissionsReport.Add(editReport);
 
             var designRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.Design);
             ctx.Load(designRoleDef);
             ctx.ExecuteQuery();
 
-            var designReport = new BasePermission(designRoleDef.Name, PermissionLevel.GetEffectivePermissions(designRoleDef.BasePermissions));
+            var designReport = new BasePermission(designRoleDef.Name, (int)PermissionLevel.RoleDefinitionIds.Design, PermissionLevel.GetEffectivePermissions(designRoleDef.BasePermissions));
             basePermissionsReport.Add(designReport);
 
             var fullControlRoleDef = ctx.Web.RoleDefinitions.GetById((int)PermissionLevel.RoleDefinitionIds.FullControl);
             ctx.Load(fullControlRoleDef);
             ctx.ExecuteQuery();
 
-            var fullControlReport = new BasePermission(fullControlRoleDef.Name, PermissionLevel.GetEffectivePermissions(fullControlRoleDef.BasePermissions));
+            var fullControlReport = new BasePermission(fullControlRoleDef.Name, (int)PermissionLevel.RoleDefinitionIds.FullControl, PermissionLevel.GetEffectivePermissions(fullControlRoleDef.BasePermissions));
             basePermissionsReport.Add(fullControlReport);
 
             return basePermissionsReport;
@@ -191,11 +191,13 @@ namespace SitePermissions
     public class BasePermission
     {
         public string Title;
+        public int Id;
         public List<string> Permissions;
 
-        public BasePermission(string title, List<PermissionKind> permissions)
+        public BasePermission(string title, int id, List<PermissionKind> permissions)
         {
             Title = title;
+            Id = id;
 
             var permissionString = new List<string>();
             foreach (var permission in permissions)
