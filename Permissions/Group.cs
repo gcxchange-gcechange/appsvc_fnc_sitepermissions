@@ -263,32 +263,26 @@ namespace SitePermissions
                                 var groups = await graphAPIAuth.Groups
                                 .Request()
                                 .Header("ConsistencyLevel", "eventual")
+                                .Filter($"startswith(displayName, '{ctx.Web.Title}')")
+                                .Top(1)
                                 .GetAsync();
 
-                                var groupFound = false;
-                                do
+                                if (groups.Any())
                                 {
-                                    foreach (var group in groups)
-                                    {
-                                        if (group.DisplayName == ctx.Web.Title)
-                                        {
-                                            var user = ctx.Web.EnsureUser($"c:0o.c|federateddirectoryclaimprovider|{group.Id}");
-                                            ctx.Load(user);
-                                            ctx.ExecuteQuery();
-                                            
-                                            var addUser = oGroup.Users.AddUser(user);
-                                            ctx.Load(addUser);
-                                            ctx.ExecuteQuery();
+                                    var group = groups.First();
 
-                                            groupFound = true;
-                                            result = false;
+                                    var user = ctx.Web.EnsureUser($"c:0o.c|federateddirectoryclaimprovider|{group.Id}");
+                                    ctx.Load(user);
+                                    ctx.ExecuteQuery();
 
-                                            log.LogInformation($"Added {group.DisplayName}");
-                                            
-                                            break;
-                                        }
-                                    }
-                                } while (!groupFound && groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
+                                    var addUser = oGroup.Users.AddUser(user);
+                                    ctx.Load(addUser);
+                                    ctx.ExecuteQuery();
+
+                                    result = false;
+
+                                    log.LogInformation($"Added {group.DisplayName} Members");
+                                }
                             }
                         }
                     }
@@ -396,28 +390,6 @@ namespace SitePermissions
 
                 if (user == null)
                     log.LogError($"Unable to find user by Id {id}");
-
-                return user;
-            }
-
-            public static Microsoft.SharePoint.Client.User GetUserByEmail(string email, ClientContext ctx, ILogger log)
-            {
-                Microsoft.SharePoint.Client.User user = null;
-
-                ctx.Load(ctx.Web.SiteUsers);
-                ctx.ExecuteQuery();
-
-                foreach (var _user in ctx.Web.SiteUsers)
-                {
-                    if (_user.Email == email)
-                    {
-                        user = _user;
-                        break;
-                    }
-                }
-
-                if (user == null)
-                    log.LogError($"Unable to find user by email \"{email}\"");
 
                 return user;
             }
