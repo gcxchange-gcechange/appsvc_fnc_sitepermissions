@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using PnP.Framework.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SitePermissions
@@ -206,12 +206,13 @@ namespace SitePermissions
 
             // This function will remove any memebers of the site's sharepoint groups that aren't supposed to be there by default
             // Returns false if any were found and removed.
-            public static async Task<bool> CleanSharePointGroups(List<Group> approvedAdminGroups, ClientContext ctx, ILogger log)
+            public static async Task<bool> CleanSharePointGroups(ClientContext ctx, GraphServiceClient graphAPIAuth, ILogger log)
             {
                 var result = true;
 
                 try
                 {
+                    var memberGroupFound = false;
                     var roleAssignments = ctx.Web.RoleAssignments;
 
                     ctx.Load(roleAssignments, r => r.Include(i => i.Member, i => i.RoleDefinitionBindings));
@@ -237,8 +238,10 @@ namespace SitePermissions
 
                             foreach (var user in oUserCollection)
                             {
-                                var isMembersUser = user.Title == ctx.Web.Title + " Members";
-                                //var isAdmin = approvedAdminGroups.Any(x => x.GroupName == user.Title);
+                                var isMembersUser = user.Title == ctx.Web.Title + " Members" || user.Title == ctx.Web.Description + " Members";
+
+                                if (!memberGroupFound)
+                                    memberGroupFound = (isMembersGroup && isMembersUser);
 
                                 // Ignore system accounts and members in the member group
                                 if (user.Title == "System Account" || (isMembersGroup && isMembersUser))
@@ -247,10 +250,45 @@ namespace SitePermissions
                                 oGroup.Users.RemoveByLoginName(user.LoginName);
                                 ctx.ExecuteQuery();
 
-                                //if (!(isOwnersGroup && isAdmin))
                                 result = false;
 
                                 log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
+                            }
+
+                            // No member group found, add it
+                            if (isMembersGroup && !memberGroupFound)
+                            {
+                                log.LogWarning($"{ctx.Web.Title} Members user is missing from the {ctx.Web.Title} Members SharePoint Group");
+
+                                var groups = await graphAPIAuth.Groups
+                                .Request()
+                                .Header("ConsistencyLevel", "eventual")
+                                .GetAsync();
+
+                                var groupFound = false;
+                                do
+                                {
+                                    foreach (var group in groups)
+                                    {
+                                        if (group.DisplayName == ctx.Web.Title)
+                                        {
+                                            var user = ctx.Web.EnsureUser($"c:0o.c|federateddirectoryclaimprovider|{group.Id}");
+                                            ctx.Load(user);
+                                            ctx.ExecuteQuery();
+                                            
+                                            var addUser = oGroup.Users.AddUser(user);
+                                            ctx.Load(addUser);
+                                            ctx.ExecuteQuery();
+
+                                            groupFound = true;
+                                            result = false;
+
+                                            log.LogInformation($"Added {group.DisplayName}");
+                                            
+                                            break;
+                                        }
+                                    }
+                                } while (!groupFound && groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
                             }
                         }
                     }
@@ -358,6 +396,28 @@ namespace SitePermissions
 
                 if (user == null)
                     log.LogError($"Unable to find user by Id {id}");
+
+                return user;
+            }
+
+            public static Microsoft.SharePoint.Client.User GetUserByEmail(string email, ClientContext ctx, ILogger log)
+            {
+                Microsoft.SharePoint.Client.User user = null;
+
+                ctx.Load(ctx.Web.SiteUsers);
+                ctx.ExecuteQuery();
+
+                foreach (var _user in ctx.Web.SiteUsers)
+                {
+                    if (_user.Email == email)
+                    {
+                        user = _user;
+                        break;
+                    }
+                }
+
+                if (user == null)
+                    log.LogError($"Unable to find user by email \"{email}\"");
 
                 return user;
             }

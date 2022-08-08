@@ -214,7 +214,7 @@ namespace SitePermissions
                     var validContribute = await Group.Helpers.RemoveUnknownPermissionLevels(contributeGroups, PermissionLevel.Contribute, ctx, log);
                     var validDesign = await Group.Helpers.RemoveUnknownPermissionLevels(designGroups, PermissionLevel.Design, ctx, log);
 
-                    var validSharePointGroups = await Group.Helpers.CleanSharePointGroups(siteCollectionAdminGroups, ctx, log);
+                    var validSharePointGroups = await Group.Helpers.CleanSharePointGroups(ctx, graphAPIAuth, log);
 
                     misconfigured = !misconfigured ? !(validRead && validEdit && validFullControl && validSharePointGroups && validContribute && validDesign) : misconfigured;
 
