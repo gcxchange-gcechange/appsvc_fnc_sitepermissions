@@ -11,16 +11,16 @@ namespace SitePermissions
 {
     public class Group
     {
+        public readonly string Name;
+        public readonly string Id;
+        public readonly string AssignedPermissionLevel;
+
         public Group(string groupName, string id, string permissionLevel)
         {
             Name = groupName;
             Id = id;
             AssignedPermissionLevel = permissionLevel;
         }
-
-        public string Name { get; set; }
-        public string Id { get; set; }
-        public string AssignedPermissionLevel { get; set; }
 
         public async Task<bool> HasPermissionLevel(string permissionLevel, ClientContext ctx, ILogger log)
         {
@@ -258,7 +258,7 @@ namespace SitePermissions
                             // No member group found, add it
                             if (isMembersGroup && !memberGroupFound)
                             {
-                                log.LogWarning($"{ctx.Web.Title} Members user is missing from the {ctx.Web.Title} Members SharePoint Group");
+                                log.LogWarning($"{ctx.Web.Title} Members is missing from the {ctx.Web.Title} Members SharePoint group");
 
                                 var groups = await graphAPIAuth.Groups
                                 .Request()

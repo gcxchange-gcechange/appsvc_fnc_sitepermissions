@@ -2,7 +2,7 @@
 using Microsoft.Graph;
 using System;
 using System.Collections.Generic;
-using System.Net.Mail;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SitePermissions
@@ -13,6 +13,7 @@ namespace SitePermissions
         public static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
         {
             var results = new List<Tuple<Microsoft.Graph.User, bool>>();
+            var siteOwners = new List<Microsoft.Graph.User>();
 
             foreach (var site in sites)
             {
@@ -45,8 +46,7 @@ namespace SitePermissions
 
                                 if (user != null)
                                 {
-                                    var result = await SendMisconfiguredEmail(user.DisplayName, user.Mail, log);
-                                    results.Add(new Tuple<Microsoft.Graph.User, bool>(user, result));
+                                    siteOwners.Add(user);
                                 }
                             }
                         }
@@ -54,6 +54,12 @@ namespace SitePermissions
                     }
                 }
                 while (groups.NextPageRequest != null && (groups = await groups.NextPageRequest.GetAsync()).Count > 0);
+            }
+
+            foreach (var owner in siteOwners.Distinct())
+            {
+                var result = await SendMisconfiguredEmail(owner.DisplayName, owner.Mail, log);
+                results.Add(new Tuple<Microsoft.Graph.User, bool>(owner, result));
             }
 
             return results;
