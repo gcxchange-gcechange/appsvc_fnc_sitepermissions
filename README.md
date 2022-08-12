@@ -1,7 +1,6 @@
 ##  Site Permissions App Function
 This app function checks subsite configurations to make sure certain permissions are in place. If it detects any misconfigurations it will reconfigure them + inform site owners. The function app is triggered on a timer set for every Saturday at 12 AM.
 ##  API Permissions
-Your app registration will need the following API permissions
 ### Microsoft Graph
 - **Group.Read.All** - Read all groups
 - **GroupMember.Read.All** - Read all group memberships
@@ -9,7 +8,7 @@ Your app registration will need the following API permissions
 - **Sites.Read.All** - Read all site collections
 - **User.Read.All** - Read all users' full profiles
 ### App Only
-- Full Control on the tenant and site collection
+- **Full Control** - Site collection
 ## How To Setup
 You will need to add a file named **local.settings.json** in the **Permissions** folder.  The function app expects the following values:
 - **tenantId** - Your azure subscription
