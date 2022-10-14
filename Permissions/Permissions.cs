@@ -21,6 +21,12 @@ namespace SitePermissions
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
 
+            var scopes = new[] { "user.read mail.send" };
+
+            ROPCConfidentialTokenCredential authdelegated = new ROPCConfidentialTokenCredential();
+
+            var graphClient_delegated = new GraphServiceClient(authdelegated, scopes);
+
             var auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
             
@@ -230,7 +236,7 @@ namespace SitePermissions
 
             await StoreData.StoreReports(executionContext, reports, "reports", log);
 
-            await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
+            await Email.InformOwners(misconfiguredSites, graphClient_delegated, log);
 
             return new OkObjectResult(misconfiguredSites);
         }
