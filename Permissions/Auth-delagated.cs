@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Threading;
+using PnP.Framework.Diagnostics;
 
 namespace SitePermissions
 {

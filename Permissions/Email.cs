@@ -4,17 +4,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace SitePermissions
 {
     public static class Email
     {
         // Go through all the sites, find the owner emails, and inform them their site settings have changed.
-        public static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth, ILogger log)
+        public static async Task<List<Tuple<Microsoft.Graph.User, bool>>> InformOwners(ICollection<Site> sites, GraphServiceClient graphAPIAuth,  ILogger log)
         {
             var results = new List<Tuple<Microsoft.Graph.User, bool>>();
             var siteOwners = new List<Microsoft.Graph.User>();
-
             foreach (var site in sites)
             {
                 var groupQueryOptions = new List<QueryOption>()
@@ -61,7 +61,6 @@ namespace SitePermissions
                 var result = await SendMisconfiguredEmail(owner.DisplayName, owner.Mail, log);
                 results.Add(new Tuple<Microsoft.Graph.User, bool>(owner, result));
             }
-
             return results;
         }
 
@@ -69,9 +68,10 @@ namespace SitePermissions
         public static async Task<bool> SendMisconfiguredEmail(string Username, string UserEmail, ILogger log)
         {
             var res = true;
-            var auth = new Auth();
-            var graphAPIAuth = auth.graphAuth(log);
-
+            var scopes = new[] { "user.read mail.send" };
+            ROPCConfidentialTokenCredential authdelegated = new ROPCConfidentialTokenCredential();
+            var graphClient_delegated = new GraphServiceClient(authdelegated, scopes);
+ 
             try
             {
                 var message = new Message
@@ -127,7 +127,7 @@ namespace SitePermissions
                     }
                 };
 
-                await graphAPIAuth.Users[Globals.emailSenderId]
+                await graphClient_delegated.Users[Globals.emailSenderId]
                 .SendMail(message, null)
                 .Request()
                 .PostAsync();

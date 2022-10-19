@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Azure.WebJobs.Extensions.Http;
 
 namespace SitePermissions
 {
@@ -15,18 +17,12 @@ namespace SitePermissions
         [FunctionName("HandleMisconfigured")]
         public static async Task<IActionResult> Run(
             [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
+
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
 
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
-
-            var scopes = new[] { "user.read mail.send" };
-
-            ROPCConfidentialTokenCredential authdelegated = new ROPCConfidentialTokenCredential();
-
-            var graphClient_delegated = new GraphServiceClient(authdelegated, scopes);
-
             var auth = new Auth();
             var graphAPIAuth = auth.graphAuth(log);
             
@@ -236,7 +232,7 @@ namespace SitePermissions
 
             await StoreData.StoreReports(executionContext, reports, "reports", log);
 
-            await Email.InformOwners(misconfiguredSites, graphClient_delegated, log);
+            await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
 
             return new OkObjectResult(misconfiguredSites);
         }
