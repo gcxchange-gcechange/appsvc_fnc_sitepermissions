@@ -14,6 +14,10 @@ namespace SitePermissions
         public static readonly string secretNameClient = GetEnvironmentVariable("secretNameClient");
         public static readonly string secretNameAppOnly = GetEnvironmentVariable("secretNameAppOnly");
 
+        public static readonly string username_delegated = GetEnvironmentVariable("username_delegated");
+        public static readonly string password_delegated = GetEnvironmentVariable("password_delegated");
+
+
         public static readonly List<Group> groups = GetGroups();
 
         public static List<string> GetExcludedSiteIds()
