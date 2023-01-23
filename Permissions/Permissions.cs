@@ -15,7 +15,7 @@ namespace SitePermissions
     public static class Permissions
     {
         [FunctionName("HandleMisconfigured")]
-        public static async Task<IActionResult> Run(
+        public static async Task Run(
             [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
 
         {
@@ -234,7 +234,7 @@ namespace SitePermissions
 
             await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
 
-            return new OkObjectResult(misconfiguredSites);
+            //return misconfiguredSites;
         }
 
         // Goes through the Read, Edit, and Full Control role definitions of the site to determine if they have been changed 
