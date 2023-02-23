@@ -48,7 +48,7 @@ namespace SitePermissions
 
                                 if (user != null)
                                 {
-                                    siteOwnersInfo.Add(new Tuple<Microsoft.Graph.User, string, string>(user, site.Name, site.WebUrl));
+                                    siteOwnersInfo.Add(new Tuple<Microsoft.Graph.User, string, string>(user, site.DisplayName, site.WebUrl));
                                 }
                             }
                         }

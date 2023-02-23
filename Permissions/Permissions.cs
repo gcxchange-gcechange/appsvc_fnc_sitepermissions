@@ -224,7 +224,7 @@ namespace SitePermissions
                     {
                         misconfiguredSites.Add(site);
 
-                        log.LogWarning($"Found misconfigured site: {site.Name} - {site.WebUrl}");
+                        log.LogWarning($"Found misconfigured site: {site.DisplayName} - {site.WebUrl}");
                     }
                 }
             }
