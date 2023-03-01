@@ -16,8 +16,7 @@ namespace SitePermissions
     {
         [FunctionName("HandleMisconfigured")]
         public static async Task Run(
-            [HttpTrigger(Microsoft.Azure.WebJobs.Extensions.Http.AuthorizationLevel.Function, "get", "post", Route = null)] Microsoft.AspNetCore.Http.HttpRequest req,
-            ILogger log, ExecutionContext executionContext)
+            [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
             log.LogWarning($"Running in: { (Globals.reportOnly == true ? "report only" : "report & update")} mode.");
