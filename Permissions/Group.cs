@@ -80,14 +80,19 @@ namespace SitePermissions
                         {
                             if (levelsToRemove.Any(x => x.Equals(role.Name)))
                             {
-                                ra.RoleDefinitionBindings.Remove(role);
-                                result = true;
+                                if (Globals.reportOnly == false)
+                                {
+                                    ra.RoleDefinitionBindings.Remove(role);
+                                    log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
+                                }
 
-                                log.LogWarning($"Removing {role.Name} from {((Microsoft.SharePoint.Client.User)ra.Member).Title}");
+                                result = true;
                             }
                         }
 
-                        ra.Update();
+                        if (Globals.reportOnly == false)
+                            ra.Update();
+
                         break;
                     }
                 }
@@ -247,12 +252,15 @@ namespace SitePermissions
                                 if (user.Title == "System Account" || (isMembersGroup && isMembersUser))
                                     continue;
 
-                                oGroup.Users.RemoveByLoginName(user.LoginName);
-                                ctx.ExecuteQuery();
+                                if (Globals.reportOnly == false)
+                                {
+                                    oGroup.Users.RemoveByLoginName(user.LoginName);
+                                    ctx.ExecuteQuery();
+
+                                    log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
+                                }
 
                                 result = false;
-
-                                log.LogWarning($"Removing {user.Title} from {ra.Member.Title}");
                             }
 
                             // No member group found, add it
@@ -269,19 +277,23 @@ namespace SitePermissions
 
                                 if (groups.Any())
                                 {
-                                    var group = groups.First();
 
-                                    var user = ctx.Web.EnsureUser($"c:0o.c|federateddirectoryclaimprovider|{group.Id}");
-                                    ctx.Load(user);
-                                    ctx.ExecuteQuery();
+                                    if (Globals.reportOnly == false)
+                                    {
+                                        var group = groups.First();
 
-                                    var addUser = oGroup.Users.AddUser(user);
-                                    ctx.Load(addUser);
-                                    ctx.ExecuteQuery();
+                                        var user = ctx.Web.EnsureUser($"c:0o.c|federateddirectoryclaimprovider|{group.Id}");
+                                        ctx.Load(user);
+                                        ctx.ExecuteQuery();
+
+                                        var addUser = oGroup.Users.AddUser(user);
+                                        ctx.Load(addUser);
+                                        ctx.ExecuteQuery();
+
+                                        log.LogInformation($"Added {group.DisplayName} Members");
+                                    }
 
                                     result = false;
-
-                                    log.LogInformation($"Added {group.DisplayName} Members");
                                 }
                             }
                         }
@@ -333,7 +345,6 @@ namespace SitePermissions
             public static async Task<bool> RemoveSiteCollectionAdministrators(List<Group> approvedAdminGroups, ClientContext ctx, ILogger log)
             {
                 var isValid = true;
-                var removedUsers = new List<Microsoft.SharePoint.Client.User>();
 
                 ctx.Load(ctx.Web);
                 ctx.Load(ctx.Site);
@@ -352,12 +363,14 @@ namespace SitePermissions
                     {
                         try
                         {
-                            user.IsSiteAdmin = false;
-                            user.Update();
-                            ctx.Load(user);
-                            ctx.ExecuteQuery();
+                            if (Globals.reportOnly == false)
+                            {
+                                user.IsSiteAdmin = false;
+                                user.Update();
+                                ctx.Load(user);
+                                ctx.ExecuteQuery();
+                            }
 
-                            removedUsers.Add(user);
                             isValid = false;
 
                             log.LogWarning($"Removed {user.Title} from Site Collection Administrators for {ctx.Site.Url}");

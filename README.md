@@ -20,6 +20,7 @@ You will need to add a file named **local.settings.json** in the **Permissions**
 - **secretNameAppOnly** - The name of the app only secret in your key vault
 - **excludeSiteIds** - A string of site IDs seperated by commas. These sites will be ignored.
 - **emailSenderId** - The object ID of the user that will send emails. Make sure this user has a license to send email.
+- **reportOnly** - "1", "on", or "true". This will run the script in report only mode and won't modify any of the misconfigured sites.
 - **groups** - A comma seperated string of group names and permission levels. See the example below for formatting. 
 
 	- **Name** the name of the user/group
