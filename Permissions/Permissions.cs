@@ -19,7 +19,7 @@ namespace SitePermissions
             [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
-            log.LogWarning($"Running in: { (Globals.reportOnly == true ? "report only" : "report & update")} mode.");
+            log.LogWarning($"Running in: { (Globals.reportOnly == true ? "report" : "update")} mode.");
 
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
@@ -252,7 +252,7 @@ namespace SitePermissions
 
             await StoreData.StoreReports(executionContext, reports, "reports", log);
 
-            if (Globals.reportOnly == true)
+            if (Globals.reportOnly == false)
             {
                 await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
             }

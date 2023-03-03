@@ -128,11 +128,11 @@ namespace SitePermissions
                 ctx.Load(spGroup, x => x.Users);
                 ctx.ExecuteQuery();
 
-                log.LogInformation($"Gave {Name} {permissionLevel} on {ctx.Site.Url}");
+                log.LogInformation($"Gave {Name} {permissionLevel}");
             }
             catch (Exception ex)
             {
-                log.LogError($"Error adding {Name} to {ctx.Site.Url} - {ex.Source}: {ex.Message} | {ex.InnerException}");
+                log.LogError($"Error adding {Name} {permissionLevel} - {ex.Source}: {ex.Message} | {ex.InnerException}");
             }
 
             return result;
