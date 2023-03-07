@@ -113,7 +113,7 @@ namespace SitePermissions
                                         log.LogInformation($"{group.Name} passed {PermissionLevel.Contribute} check");
                                     }
 
-                                    readGroups.Add(group);
+                                    contributeGroups.Add(group);
 
                                     break;
 
