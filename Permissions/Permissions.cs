@@ -1,14 +1,11 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs.Extensions.Http;
 
 namespace SitePermissions
 {
@@ -51,6 +48,7 @@ namespace SitePermissions
                     var misconfigured = false;
 
                     var ctx = auth.appOnlyAuth(site.WebUrl, log);
+                    var report = new Report(site, ctx);
 
                     var readGroups = new List<Group>();
                     var editGroups = new List<Group>();
@@ -237,12 +235,8 @@ namespace SitePermissions
 
                     if (misconfigured)
                     {
-                        if (Globals.reportOnly == true)
-                        {
-                            reports.Add(new Report(site, ctx));
-                        }
-
                         misconfiguredSites.Add(site);
+                        reports.Add(report);
 
                         log.LogWarning($"Found misconfigured site: {site.DisplayName} - {site.WebUrl}");
                     }
