@@ -1,14 +1,11 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using Microsoft.Graph;
 using Microsoft.SharePoint.Client;
 using Site = Microsoft.Graph.Site;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs.Extensions.Http;
 
 namespace SitePermissions
 {
@@ -17,9 +14,9 @@ namespace SitePermissions
         [FunctionName("HandleMisconfigured")]
         public static async Task Run(
             [TimerTrigger("0 0 0 * * 6")] TimerInfo myTimer, ILogger log, ExecutionContext executionContext)
-
         {
             log.LogInformation($"Site permissions function executed at: {DateTime.Now}");
+            log.LogWarning($"Running in: { (Globals.reportOnly == true ? "report" : "update")} mode.");
 
             var misconfiguredSites = new List<Site>();
             var reports = new List<Report>();
@@ -51,9 +48,7 @@ namespace SitePermissions
                     var misconfigured = false;
 
                     var ctx = auth.appOnlyAuth(site.WebUrl, log);
-
-                    // Create a report of the site before we make any changes.
-                    reports.Add(new Report(site, ctx));
+                    var report = new Report(site, ctx);
 
                     var readGroups = new List<Group>();
                     var editGroups = new List<Group>();
@@ -62,7 +57,7 @@ namespace SitePermissions
                     var contributeGroups = new List<Group>();
                     var siteCollectionAdminGroups = new List<Group>();
 
-                    // Validate the default role definitions (Read, Edit, Full Control) have the required base permissions
+                    // Validate the default role definitions (Read, Contribute, Edit, Design, and Full Control) have the required base permissions
                     misconfigured = await ValidateRoleDefinitions(ctx, log) == false;
 
                     // Go through each group defined in local.settings.json
@@ -82,8 +77,11 @@ namespace SitePermissions
 
                                     if (!hasRead || hasContribute || hasEdit || hasDesign || hasFullControl)
                                     {
-                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
-                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                            await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        }
 
                                         misconfigured = true;
                                         log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Read} check");
@@ -101,8 +99,11 @@ namespace SitePermissions
 
                                     if (!hasContribute || hasRead || hasEdit || hasDesign || hasFullControl)
                                     {
-                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
-                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Design, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                            await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        }
 
                                         misconfigured = true;
                                         log.LogWarning($"{group.Name} didn't pass {PermissionLevel.Contribute} check");
@@ -112,7 +113,7 @@ namespace SitePermissions
                                         log.LogInformation($"{group.Name} passed {PermissionLevel.Contribute} check");
                                     }
 
-                                    readGroups.Add(group);
+                                    contributeGroups.Add(group);
 
                                     break;
 
@@ -120,8 +121,11 @@ namespace SitePermissions
 
                                     if (!hasEdit || hasRead || hasContribute || hasDesign || hasFullControl)
                                     {
-                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
-                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.FullControl }, ctx, log);
+                                            await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        }
 
                                         misconfigured = true;
 
@@ -140,8 +144,11 @@ namespace SitePermissions
 
                                     if (!hasDesign || hasRead || hasContribute || hasEdit || hasFullControl)
                                     {
-                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
-                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Edit, PermissionLevel.FullControl }, ctx, log);
+                                            await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        }
 
                                         misconfigured = true;
 
@@ -160,8 +167,11 @@ namespace SitePermissions
 
                                     if (!hasFullControl || hasRead || hasContribute || hasEdit || hasDesign)
                                     {
-                                        await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
-                                        await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await group.RemovePermissionLevels(new List<string>() { PermissionLevel.Read, PermissionLevel.Contribute, PermissionLevel.Design, PermissionLevel.Edit }, ctx, log);
+                                            await group.AddPermissionLevel(group.AssignedPermissionLevel, ctx, log);
+                                        }
 
                                         misconfigured = true;
 
@@ -180,9 +190,12 @@ namespace SitePermissions
 
                                     if (!await group.IsSiteCollectionAdministrator(ctx, log))
                                     {
-                                        misconfigured = true;
+                                        if (Globals.reportOnly == false)
+                                        {
+                                            await Group.Helpers.AddSiteCollectionAdministrator(group, ctx, log);
+                                        }
 
-                                        await Group.Helpers.AddSiteCollectionAdministrator(group, ctx, log);
+                                        misconfigured = true;
 
                                         log.LogWarning($"{group.Name} didn't pass {PermissionLevel.SiteCollectionAdministrator} check");
                                     }
@@ -223,6 +236,7 @@ namespace SitePermissions
                     if (misconfigured)
                     {
                         misconfiguredSites.Add(site);
+                        reports.Add(report);
 
                         log.LogWarning($"Found misconfigured site: {site.DisplayName} - {site.WebUrl}");
                     }
@@ -232,12 +246,15 @@ namespace SitePermissions
 
             await StoreData.StoreReports(executionContext, reports, "reports", log);
 
-            await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
+            if (Globals.reportOnly == false)
+            {
+                await Email.InformOwners(misconfiguredSites, graphAPIAuth, log);
+            }
 
-            //return misconfiguredSites;
+            log.LogWarning($"Found {misconfiguredSites.Count} misconfigured sites.");
         }
 
-        // Goes through the Read, Edit, and Full Control role definitions of the site to determine if they have been changed 
+        // Goes through the Read, Contribute, Edit, Design, and Full Control role definitions of the site to determine if they have been changed 
         // If any were changed it will change them back to the default (defined in PermissionLevel.cs)
         private static async Task<bool> ValidateRoleDefinitions(ClientContext ctx, ILogger log)
         {
@@ -251,19 +268,22 @@ namespace SitePermissions
 
                 if (!PermissionLevel.HasRead(readRoleDef.BasePermissions) || readRoleDef.Name != PermissionLevel.Read)
                 {
-                    var newPermissions = new BasePermissions();
-
-                    foreach (var perm in PermissionLevel.ReadPermissions)
+                    if (Globals.reportOnly == false)
                     {
-                        newPermissions.Set(perm);
+                        var newPermissions = new BasePermissions();
+
+                        foreach (var perm in PermissionLevel.ReadPermissions)
+                        {
+                            newPermissions.Set(perm);
+                        }
+
+                        readRoleDef.Name = PermissionLevel.Read;
+                        readRoleDef.BasePermissions = newPermissions;
+
+                        readRoleDef.Update();
+                        ctx.Load(readRoleDef);
+                        ctx.ExecuteQuery();
                     }
-
-                    readRoleDef.Name = PermissionLevel.Read;
-                    readRoleDef.BasePermissions = newPermissions;
-
-                    readRoleDef.Update();
-                    ctx.Load(readRoleDef);
-                    ctx.ExecuteQuery();
 
                     isValid = false;
 
@@ -280,19 +300,22 @@ namespace SitePermissions
 
                 if (!PermissionLevel.HasContribute(contributeRoleDef.BasePermissions) || contributeRoleDef.Name != PermissionLevel.Contribute)
                 {
-                    var newPermissions = new BasePermissions();
-
-                    foreach (var perm in PermissionLevel.ContributePermissions)
+                    if (Globals.reportOnly == false)
                     {
-                        newPermissions.Set(perm);
+                        var newPermissions = new BasePermissions();
+
+                        foreach (var perm in PermissionLevel.ContributePermissions)
+                        {
+                            newPermissions.Set(perm);
+                        }
+
+                        contributeRoleDef.Name = PermissionLevel.Contribute;
+                        contributeRoleDef.BasePermissions = newPermissions;
+
+                        contributeRoleDef.Update();
+                        ctx.Load(contributeRoleDef);
+                        ctx.ExecuteQuery();
                     }
-
-                    contributeRoleDef.Name = PermissionLevel.Contribute;
-                    contributeRoleDef.BasePermissions = newPermissions;
-
-                    contributeRoleDef.Update();
-                    ctx.Load(contributeRoleDef);
-                    ctx.ExecuteQuery();
 
                     isValid = false;
 
@@ -309,19 +332,22 @@ namespace SitePermissions
 
                 if (!PermissionLevel.HasEdit(editRoleDef.BasePermissions) || editRoleDef.Name != PermissionLevel.Edit)
                 {
-                    var newPermissions = new BasePermissions();
-
-                    foreach (var perm in PermissionLevel.EditPermissions)
+                    if (Globals.reportOnly == false)
                     {
-                        newPermissions.Set(perm);
+                        var newPermissions = new BasePermissions();
+
+                        foreach (var perm in PermissionLevel.EditPermissions)
+                        {
+                            newPermissions.Set(perm);
+                        }
+
+                        editRoleDef.Name = PermissionLevel.Edit;
+                        editRoleDef.BasePermissions = newPermissions;
+
+                        editRoleDef.Update();
+                        ctx.Load(editRoleDef);
+                        ctx.ExecuteQuery();
                     }
-
-                    editRoleDef.Name = PermissionLevel.Edit;
-                    editRoleDef.BasePermissions = newPermissions;
-
-                    editRoleDef.Update();
-                    ctx.Load(editRoleDef);
-                    ctx.ExecuteQuery();
 
                     isValid = false;
 
@@ -338,19 +364,22 @@ namespace SitePermissions
 
                 if (!PermissionLevel.HasDesign(designRoleDef.BasePermissions) || designRoleDef.Name != PermissionLevel.Design)
                 {
-                    var newPermissions = new BasePermissions();
-
-                    foreach (var perm in PermissionLevel.DesignPermissions)
+                    if (Globals.reportOnly == false)
                     {
-                        newPermissions.Set(perm);
+                        var newPermissions = new BasePermissions();
+
+                        foreach (var perm in PermissionLevel.DesignPermissions)
+                        {
+                            newPermissions.Set(perm);
+                        }
+
+                        designRoleDef.Name = PermissionLevel.Design;
+                        designRoleDef.BasePermissions = newPermissions;
+
+                        designRoleDef.Update();
+                        ctx.Load(designRoleDef);
+                        ctx.ExecuteQuery();
                     }
-
-                    designRoleDef.Name = PermissionLevel.Design;
-                    designRoleDef.BasePermissions = newPermissions;
-
-                    designRoleDef.Update();
-                    ctx.Load(designRoleDef);
-                    ctx.ExecuteQuery();
 
                     isValid = false;
 
@@ -367,19 +396,22 @@ namespace SitePermissions
 
                 if (!PermissionLevel.HasFullControl(fullControlRoleDef.BasePermissions) || fullControlRoleDef.Name != PermissionLevel.FullControl)
                 {
-                    var newPermissions = new BasePermissions();
-
-                    foreach (var perm in PermissionLevel.FullControlPermissions)
+                    if (Globals.reportOnly == false)
                     {
-                        newPermissions.Set(perm);
+                        var newPermissions = new BasePermissions();
+
+                        foreach (var perm in PermissionLevel.FullControlPermissions)
+                        {
+                            newPermissions.Set(perm);
+                        }
+
+                        fullControlRoleDef.Name = PermissionLevel.FullControl;
+                        fullControlRoleDef.BasePermissions = newPermissions;
+
+                        fullControlRoleDef.Update();
+                        ctx.Load(fullControlRoleDef);
+                        ctx.ExecuteQuery();
                     }
-
-                    fullControlRoleDef.Name = PermissionLevel.FullControl;
-                    fullControlRoleDef.BasePermissions = newPermissions;
-
-                    fullControlRoleDef.Update();
-                    ctx.Load(fullControlRoleDef);
-                    ctx.ExecuteQuery();
 
                     isValid = false;
 

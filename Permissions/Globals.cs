@@ -17,6 +17,8 @@ namespace SitePermissions
         public static readonly string username_delegated = GetEnvironmentVariable("username_delegated");
         public static readonly string password_delegated = GetEnvironmentVariable("password_delegated");
 
+        public static readonly bool reportOnly = GetEnvironmentBool("reportOnly");
+
 
         public static readonly List<Group> groups = GetGroups();
 
@@ -48,6 +50,22 @@ namespace SitePermissions
         private static string GetEnvironmentVariable(string name)
         {
             return System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.Process);
+        }
+
+        // Default to false if not found.
+        private static bool GetEnvironmentBool(string name)
+        {
+            var val = GetEnvironmentVariable(name);
+
+            if (val != null)
+            {
+                val = val.ToLower().Trim();
+
+                if (val == "1" || val == "on" || val == "true")
+                    return true;
+            }
+
+            return false;
         }
     }
 }
