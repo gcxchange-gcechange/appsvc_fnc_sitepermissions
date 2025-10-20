@@ -1,4 +1,4 @@
-name: SecurityScan-$(Build.Repository.Name)-$(Build.SourceBranchName)
+name: Security-Scan
 
 trigger: none
 
